@@ -1,0 +1,26 @@
+# Ambiente Virtual
+.venv/
+venv/
+ENV/
+env/
+
+# Arquivos de ambiente e chaves sensíveis
+.env
+
+# Pesos do modelo YOLOv8
+*.pt
+models/*.pt
+
+# Mídias de entrada e saída (ignorar arquivos processados e inputs locais)
+media/inputs/*
+media/outputs/*
+!media/inputs/.gitkeep
+!media/outputs/.gitkeep
+
+# Cache Python e arquivos do sistema
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+.vscode/
+.idea/

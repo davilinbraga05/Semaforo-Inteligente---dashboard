@@ -1,0 +1,7 @@
+ultralytics
+opencv-python
+pillow
+numpy
+python-dotenv
+roboflow
+lap

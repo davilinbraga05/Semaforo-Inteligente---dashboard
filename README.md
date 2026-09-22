@@ -1,267 +1,357 @@
-# Detector Test - Treinamento e Inferência YOLOv8 🚀
+# Sistema Inteligente de Controle Semafórico
 
-Repositório leve, seguro e completo para **treinamento**, **carregamento de pesos** (`best.pt`) e **inferência** do modelo **YOLOv8** em imagens estáticas e vídeos. Permite a integração segura de chaves de API via `.env` e suporte ao Roboflow.
-
----
-
-## 🎯 Classes de Detecção do Projeto (7 Classes)
-
-O modelo foi capacitado para reconhecer as seguintes classes de veículos:
-1. `ambulance` (Ambulância)
-2. `bus` (Ônibus)
-3. `car` (Carro)
-4. `fire truck` (Caminhão de Bombeiros)
-5. `motorcycle` (Motocicleta)
-6. `police car` (Viatura Policial)
-7. `truck` (Caminhão)
+## Contagem e Classificação de Veículos com Visão Computacional
 
 ---
 
-## 📂 Arquitetura do Repositório
+## 1. Visão Geral
+
+Este projeto consiste em um protótipo acadêmico voltado à aplicação de técnicas de **visão computacional** e **aprendizado profundo** (*deep learning*) para a extração automática de dados de tráfego veicular a partir de fluxos de vídeo.
+
+O sistema integra:
+- Detecção de veículos em tempo real com **YOLO26s**;
+- Filtragem de classes canônicas de trânsito urbano;
+- Rastreamento multi-objeto persistente com **ByteTrack**;
+- Interface interativa para definição dinâmica de **múltiplas linhas virtuais de contagem**;
+- Contabilização estrita de travessias com prevenção contra recontagem;
+- Agregação de contagens por classe veicular e por linha virtual;
+- Geração de vídeo processado com visualização consolidada e métricas em tempo real.
+
+O desenvolvimento foi concebido com fins de pesquisa e experimentação acadêmica, visando investigar como dados de percepção visual podem subsidiar futuramente estratégias de gestão inteligente e controle semafórico adaptativo.
+
+---
+
+## 2. Contexto e Problema
+
+Sistemas semafóricos convencionais operam predominantemente com planos de temporização fixa ou acionamentos manuais pré-programados. Esses métodos apresentam limitações estruturais diante da dinâmica variável das cidades:
+
+- **Alocação ineficiente de tempos de verde:** aproximações vazias recebem tempo desnecessário enquanto ramos concorrentes acumulam filas de espera.
+- **Falta de diferenciação de modais:** planos tradicionais têm dificuldade para mensurar a composição da frota (e.g., proporção de veículos pesados, transporte coletivo e motocicletas).
+- **Ausência de dados dinâmicos em tempo real:** controladores locais frequentemente operam isolados, sem sensores capazes de quantificar o volume efetivo de travessias por faixa.
+
+> **Nota de Escopo:** O presente módulo do repositório fornece a **camada de percepção visual e contagem veicular**. O sistema **não atua nem controla fisicamente atuadores de campo ou semáforos**. A proposta atual limita-se a extrair e consolidar os dados de tráfego que servirão de insumo para futuras etapas de decisão.
+
+---
+
+## 3. Objetivos do Projeto
+
+### Objetivo Geral
+Desenvolver um módulo de visão computacional capaz de identificar, classificar e contabilizar o fluxo de veículos em vias públicas a partir de gravações em vídeo, permitindo a configuração dinâmica de linhas virtuais para apoiar o planejamento e a modelagem semafórica.
+
+### Objetivos Específicos Implementados
+1. **Detecção:** Identificar veículos com localização precisa de bounding boxes.
+2. **Classificação:** Categorizar os objetos detectados nas quatro classes canônicas do projeto.
+3. **Rastreamento:** Associar identificadores numéricos persistentes (*track IDs*) ao longo dos quadros.
+4. **Linhas Virtuais Flexíveis:** Permitir ao operador traçar interativamente de 1 a $N$ linhas de corte diretamente sobre o vídeo.
+5. **Contabilização de Travessias:** Registrar cruzamentos por vetor de deslocamento com memória de estados independente por linha.
+6. **Agregação e Saída:** Exibir painel com métricas consolidadas e salvar o vídeo resultante anotado.
+
+---
+
+## 4. Evolução Técnica do Projeto
+
+No início do desenvolvimento, utilizou-se o modelo **YOLOv8n** (*nano*) da Ultralytics. Embora apresentasse baixo custo computacional, o modelo demonstrou limitações em vídeos com veículos compactados ou posicionamento elevado de câmeras.
+
+Buscando maior sensibilidade de detecção sem introduzir atrasos impeditivos de inferência, o pipeline migrou para a arquitetura **YOLO26s** oficial pré-treinada no conjunto de dados COCO. 
+
+A adoção do YOLO26s trouxe melhoria na delimitação de contornos e no reconhecimento de classes como caminhões e ônibus. Contudo, cabe ressaltar que a qualidade intrínseca das gravações (resoluções variadas, taxa de quadros reduzida e ângulos da CET) permanece como fator determinante para o desempenho do sistema.
+
+---
+
+## 5. Arquitetura do Sistema
+
+O fluxo de processamento de dados opera de forma sequencial e desacoplada em cada quadro de vídeo:
 
 ```text
-detector-test/
-├── models/
-│   ├── README.md              # Instruções e armazenamento de pesos (best.pt / yolov8n.pt)
-│   └── best.pt                # Pesos treinados do modelo (salvo após o treino ou inserido manualmente)
-├── media/
-│   ├── inputs/                # Insira suas imagens e vídeos de teste aqui
-│   └── outputs/               # Resultados anotados salvos automaticamente aqui
-├── src/
-│   ├── __init__.py
-│   ├── train.py               # Script de treinamento do YOLOv8 (Local e Roboflow)
-│   ├── test_image.py          # Script de teste e inferência em imagens estáticas
-│   └── test_video.py          # Script de teste e inferência em vídeos em tempo real
-├── datasets/                  # Pasta criada automaticamente ao baixar datasets do Roboflow
-├── .env.example               # Modelo para variáveis de ambiente (Roboflow API, Workspace, etc.)
-├── .gitignore                 # Proteção contra commit de pesos, datasets, mídias e chaves sensíveis
-├── requirements.txt           # Dependências do projeto Python (ultralytics, opencv, roboflow, etc.)
-└── README.md                  # Guia completo de treinamento, instalação e execução
+               Fluxo de Vídeo (Câmera / Arquivo MP4)
+                                 │
+                                 ▼
+                     Detecção Visual (YOLO26s)
+                                 │
+                                 ▼
+             Filtro de Classes COCO (2, 3, 5 e 7)
+                                 │
+                                 ▼
+               Rastreamento de Objetos (ByteTrack)
+                                 │
+                                 ▼
+              Atribuição de Identificadores (Track IDs)
+                                 │
+                                 ▼
+             Cálculo de Vetores de Movimento (Ponto de Contato)
+                                 │
+                                 ▼
+             Avaliação Geométrica com Linhas Virtuais
+             ├── Linha 1 (L1)  ──>  Registro em L1.counted_ids
+             ├── Linha 2 (L2)  ──>  Registro em L2.counted_ids
+             └── Linha N (LN)  ──>  Registro em LN.counted_ids
+                                 │
+                                 ▼
+        Agregação de Travessias por Classe e por Linha
+                                 │
+                                 ▼
+         Renderização Visual de HUD e Vídeo de Saída
 ```
 
 ---
 
-## ⚙️ Guia Passo a Passo de Instalação e Configuração
+## 6. Modelo de Detecção e Classes Oficiais
 
-### 1. Clonar ou Acessar a Pasta do Repositório
-Abra o terminal e navegue até a pasta do projeto:
-```bash
-cd detector-test
+O detector em operação é o **YOLO26s oficial pré-treinado no dataset COCO** (*Common Objects in Context*).
+
+- **Arquivo local esperado:** `models/yolo26s.pt`
+- **Treinamento ativo:** Não há treinamento personalizado ativo nesta versão funcional; o sistema utiliza a generalização oficial do COCO.
+
+### Classes Utilizadas pelo Projeto
+
+Dentre as 80 categorias do dataset COCO, o sistema filtra exclusivamente as 4 classes relevantes para a dinâmica de vias urbanas:
+
+| ID COCO | Classe Canônica | Nome em Português | Cor no HUD (BGR) |
+| :---: | :--- | :--- | :--- |
+| **2** | `car` | Carro | Verde `(0, 255, 0)` |
+| **3** | `motorcycle` | Motocicleta | Magenta `(255, 0, 255)` |
+| **5** | `bus` | Ônibus | Laranja `(0, 165, 255)` |
+| **7** | `truck` | Caminhão | Ciano / Azul Claro `(255, 191, 0)` |
+
+Qualquer outra classe presente no COCO (como pedestres, bicicletas ou objetos estáticos) é ignorada pela camada de contagem.
+
+---
+
+## 7. Rastreamento com ByteTrack
+
+Para monitorar veículos ao longo do tempo, o projeto utiliza o algoritmo **ByteTrack** integrado via Ultralytics:
+
+- **Parâmetros:** `tracker="bytetrack.yaml"`, `persist=True`
+- **Funcionamento:** O algoritmo analisa as correspondências geométricas e de aparência das caixas delimitadoras entre quadros sucessivos, atribuindo e mantendo um `track_id` único para cada veículo.
+- **Ponto de Referência:** A posição espacial de cada veículo é calculada pelo ponto central inferior da bounding box:
+  $$x_{\text{ref}} = \frac{x_1 + x_2}{2}, \quad y_{\text{ref}} = y_2$$
+  Esse ponto aproxima o contato das rodas do veículo com a pista, mitigando oscilações causadas pela altura do veículo.
+
+---
+
+## 8. Definição Dinâmica de Múltiplas Linhas de Contagem
+
+O sistema permite ao usuário traçar interativamente **de 1 a $N$ linhas virtuais de contagem** diretamente sobre o primeiro quadro do vídeo.
+
+### Fluxo Operacional
+1. Ao iniciar o script com interface gráfica, o vídeo é pausado no quadro inicial.
+2. O usuário clica com o botão esquerdo e arrasta para posicionar a linha **L1**.
+3. **Opção 1 Linha:** Pressionar `ENTER` confirma L1 e inicia a execução imediatamente com uma única linha.
+4. **Opção Múltiplas Linhas:**
+   - Pressionar `N` confirma L1 e abre a edição da linha **L2**.
+   - Desenhar L2 e pressionar `N` para criar **L3**, repetindo para quantas linhas forem necessárias.
+   - Pressionar `ENTER` confirma todas as linhas desenhadas e dá início ao processamento.
+
+### Atalhos de Teclado na Interface de Configuração
+
+| Comando / Tecla | Ação |
+| :--- | :--- |
+| **Clique esquerdo + Arrastar** | Desenha o segmento de reta da linha ativa |
+| **`N`** | Confirma a linha ativa atual e habilita o traçado da próxima linha |
+| **`ENTER` ou `ESPAÇO`** | Confirma as linhas e inicia o processamento do vídeo |
+| **`R`** | Redefine/limpa apenas a linha ativa em edição |
+| **`Z` ou `Backspace`** | Descarta a linha ativa ou traz a última confirmada de volta para edição |
+| **`Q` ou `ESC`** | Cancela e encerra a aplicação |
+
+Durante o processamento do vídeo, pressionar a tecla **`R`** pausa a reprodução e reabre a interface interativa caso o operador precise redefinir o traçado das linhas.
+
+---
+
+## 9. Lógica de Contagem e Total Agregado
+
+### Detecção Geométrica de Cruzamento
+A travessia de cada linha virtual é avaliada através do produto vetorial bidimensional entre o vetor de deslocamento do veículo $(\vec{P}_{\text{ant}} \to \vec{P}_{\text{atual}})$ e o segmento que define a linha virtual $(\vec{A} \to \vec{B})$. O cruzamento só é confirmado quando os segmentos se interceptam no plano da imagem.
+
+### Memória Independente por Linha
+Cada linha configurada mantém sua própria estrutura de dados:
+- `line.counted_ids`: Conjunto de identificadores de veículos já contabilizados naquela linha específica.
+- `line.counts`: Dicionário com contadores individuais por classe veicular.
+
+### Significado de "Total Agregado" (Travessias)
+O sistema quantifica **TRAVESSIAS DE LINHA** e não necessariamente veículos únicos globais. 
+
+- Se o veículo com `track_id = 14` cruzar a linha `L1`, ele será contabilizado uma única vez em `L1`.
+- Caso ele permaneça parado ou oscile sobre `L1`, a presença em `L1.counted_ids` impede qualquer recontagem.
+- Se esse mesmo veículo continuar seu percurso e posteriormente cruzar a linha `L2`, ele será contabilizado em `L2`.
+
+Dessa forma, o total consolidado exibido no painel superior esquerdo representa a **soma de todas as travessias registradas**:
+$$\text{Total por Classe} = \sum_{k=1}^N \text{Linha}_k[\text{classe}], \quad \text{Total Geral} = \sum \text{Total por Classe}$$
+
+---
+
+## 10. Estrutura do Repositório
+
+```text
+.
+├── media/
+│   ├── inputs/                       # Arquivos de vídeo e imagem para teste
+│   └── outputs/                      # Vídeos anotados gerados pelo sistema
+├── models/
+│   ├── README.md                     # Documentação dos pesos e classes COCO
+│   └── yolo26s.pt                    # Pesos oficiais do YOLO26s (ignorado no Git)
+├── src/
+│   ├── __init__.py
+│   ├── auto_line.py                  # Calibrador automático opcional de linhas
+│   ├── config.py                     # Configurações canônicas de classes e cores
+│   ├── test_image.py                 # Script de inferência em imagens estáticas
+│   ├── test_video.py                 # Pipeline principal de vídeo e contagem
+│   ├── train.py                      # Script de treinamento auxiliar (Roboflow/Local)
+│   └── vehicle_counter.py            # Classes VehicleCounter e MultiLineVehicleCounter
+├── tests/
+│   ├── test_interactive_logic.py     # Testes da máquina de estados do desenho interativo
+│   ├── test_multiline.py             # Testes unitários e de integração de multilinhas
+│   └── test_video_pipeline.py        # Testes de ponta a ponta com vídeo real
+├── .env.example                      # Modelo para configuração de chaves de API
+├── .gitignore                        # Proteção de binários .pt, mídias e caches
+├── README.md                         # Documentação principal do projeto
+└── requirements.txt                  # Dependências Python oficiais
 ```
 
-### 2. Criar e Ativar o Ambiente Virtual Python (`venv`)
+---
 
-- **no macOS / Linux:**
+## 11. Instalação e Configuração
+
+### Pré-requisitos
+- Python 3.9 ou superior
+- Sistema Operacional: macOS, Linux ou Windows
+
+### 1. Criar e Ativar o Ambiente Virtual
+- **No macOS / Linux:**
   ```bash
   python3 -m venv .venv
   source .venv/bin/activate
   ```
-
-- **no Windows (PowerShell):**
+- **No Windows:**
   ```powershell
   python -m venv .venv
   .\.venv\Scripts\Activate.ps1
   ```
 
-### 3. Instalar as Dependências
-Com o ambiente virtual ativo, instale os pacotes requeridos:
+### 2. Instalar Dependências
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 4. Configurar as Variáveis de Ambiente (`.env`)
-Copie o arquivo `.env.example` para criar o seu arquivo `.env`:
+### 3. Obtenção do Modelo YOLO26s
+O arquivo `models/yolo26s.pt` é ignorado pelo controle de versão. Ao executar [`src/test_video.py`](file:///Users/davilinbraga/Semáforo%20Inteligente/detector-test-teste-1-contador-/src/test_video.py), caso o arquivo não seja localizado, o script efetua o download oficial automático via Ultralytics. Alternativamente, pode ser baixado manualmente:
 ```bash
-cp .env.example .env
-```
-Abra o arquivo `.env` e preencha suas credenciais do Roboflow (se for utilizar a integração automática para download do dataset):
-```env
-ROBOFLOW_API_KEY=sua_chave_privada_aqui
-ROBOFLOW_WORKSPACE=seu_workspace_aqui
-ROBOFLOW_PROJECT=seu_projeto_aqui
-ROBOFLOW_VERSION=1
+python3 -c "from ultralytics import YOLO; YOLO('yolo26s.pt')"
+mv yolo26s.pt models/yolo26s.pt
 ```
 
 ---
 
-## 🏋️‍♂️ Treinamento do Modelo (YOLOv8 Training)
+## 12. Execução
 
-Você pode treinar o modelo de três formas principais: usando o script **Python do repositório**, via **linha de comando (CLI)** ou na **nuvem (Google Colab)**.
+### Modo Padrão (Definição Manual com o Mouse)
+Para processar um vídeo selecionando interativamente uma ou mais linhas:
+```bash
+python3 src/test_video.py --input media/inputs/video_teste5.mp4
+```
+*Se o argumento `--input` for omitido, o sistema seleciona automaticamente o primeiro vídeo válido encontrado em `media/inputs/`.*
+
+### Argumentos de Linha de Comando Disponíveis
+
+| Argumento | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `-i`, `--input` | `str` | Caminho para o vídeo de entrada |
+| `-c`, `--conf` | `float` | Limiar de confiança de detecção (padrão: `0.25`) |
+| `--imgsz` | `int` | Resolução de entrada da imagem na inferência (padrão: `640`) |
+| `--no-show` | `flag` | Executa sem abrir janela gráfica (modo silencioso / background) |
+| `--line-start X Y` | `int int` | Coordenadas $(x_1, y_1)$ para fixar uma linha manual via CLI |
+| `--line-end X Y` | `int int` | Coordenadas $(x_2, y_2)$ para fixar uma linha manual via CLI |
+| `--auto-line` | `flag` | Ativa a auto-calibração da linha via `AutoLineDetector` |
+| `--calib-frames` | `int` | Quantidade de quadros para calibração automática (padrão: `75`) |
 
 ---
 
-### Estrutura do Dataset (`data.yaml`)
+## 13. Arquivos de Saída
 
-Para que o treinamento funcione com o dataset local, a pasta do dataset deve conter a seguinte estrutura:
-
+Os vídeos processados são salvos automaticamente no diretório `media/outputs/` com o prefixo `output_`:
 ```text
-meu_dataset/
-├── train/
-│   ├── images/
-│   └── labels/
-├── val/
-│   ├── images/
-│   └── labels/
-└── data.yaml
+media/outputs/output_<nome_do_arquivo>.mp4
 ```
 
-Exemplo do arquivo `data.yaml`:
-```yaml
-path: ../meu_dataset  # caminho relativo ou absoluto para a raiz do dataset
-train: train/images
-val: val/images
-
-names:
-  0: ambulance
-  1: bus
-  2: car
-  3: fire truck
-  4: motorcycle
-  5: police car
-  6: truck
-```
+O vídeo gravado contém:
+- Caixas delimitadoras coloridas por classe;
+- Rótulos formatados: `ID: <track_id> | <classe> | <confiança>%`;
+- Linhas virtuais ativas com suas cores e identificadores (`L1`, `L2`, ...);
+- Painel HUD semitransparente com a contagem agregada em tempo real;
+- Relatório final impresso no terminal após a conclusão.
 
 ---
 
-### Forma 1: Treinamento via Script Python (`src/train.py`)
+## 14. Suíte de Testes Automatizados
 
-O repositório inclui o script [`src/train.py`](file:///Users/davilinbraga/detector-test/src/train.py) totalmente pré-configurado para treinar o YOLOv8 e atualizar **automatically** o arquivo de pesos `models/best.pt`.
+O projeto possui suíte de testes em `tests/` desenvolvida para validar a integridade da lógica multilinhas e do pipeline:
 
-#### Opção A: Treinar com Dataset Local (`data.yaml`)
+1. **`tests/test_multiline.py`:**
+   - Validação com 1 linha virtual (Caso 1);
+   - Validação com 2 linhas e independência de IDs (Caso 2);
+   - Validação com 3 linhas dinâmicas (Caso 3);
+   - Sincronização atômica de `previous_positions`.
+2. **`tests/test_interactive_logic.py`:**
+   - Teste da máquina de estados dos atalhos de teclado (`N`, `ENTER`, `R`, `Z`).
+3. **`tests/test_video_pipeline.py`:**
+   - Execução ponta a ponta com vídeo real, inferência YOLO26s, ByteTrack e gravação de saída para 1, 2 e 3 linhas.
+
+### Execução dos Testes
 ```bash
-python src/train.py --data caminho/para/meu_dataset/data.yaml --epochs 50 --batch 16 --imgsz 640
-```
-
-#### Opção B: Baixar Dataset do Roboflow Automaticamente e Treinar
-Certifique-se de que configurou `ROBOFLOW_API_KEY`, `ROBOFLOW_WORKSPACE` e `ROBOFLOW_PROJECT` no seu `.env`, e execute:
-```bash
-python src/train.py --download-rf --epochs 50 --batch 16
-```
-
-#### Principais Argumentos do `src/train.py`:
-- `-d`, `--data`: Caminho para o `data.yaml` local.
-- `-e`, `--epochs`: Número de épocas de treinamento (padrão: `50`).
-- `-b`, `--batch`: Tamanho do batch (padrão: `16`).
-- `--imgsz`: Tamanho da imagem (padrão: `640`).
-- `-m`, `--model`: Modelo base pré-treinado (padrão: `yolov8n.pt`). Opções: `yolov8s.pt`, `yolov8m.pt`, `yolov8l.pt`, `yolov8x.pt`.
-- `--device`: Dispositivo de execução. Ex: `0` (GPU), `cpu`, ou `mps` (Apple Silicon GPU).
-- `--download-rf`: Força o download do dataset configurado no Roboflow antes de treinar.
-
----
-
-### Forma 2: Treinamento via Linha de Comando (CLI Ultralytics)
-
-Caso prefira rodar diretamente via terminal CLI da Ultralytics:
-
-```bash
-yolo detect train data=caminho/para/data.yaml model=yolov8n.pt epochs=50 imgsz=640 batch=16
-```
-
-Após a conclusão do treino via CLI, copie os melhores pesos gerados em `runs/detect/train/weights/best.pt` para a pasta `models/`:
-```bash
-cp runs/detect/train/weights/best.pt models/best.pt
+python3 tests/test_multiline.py
+python3 tests/test_interactive_logic.py
+python3 tests/test_video_pipeline.py
 ```
 
 ---
 
-### Forma 3: Treinamento na Nuvem (Google Colab / GPU Acelerada)
+## 15. Limitações Técnicas Conhecidas
 
-Se a sua máquina não tiver GPU dedicada (NVIDIA/Apple Silicon), recomendamos treinar no **Google Colab** gratuitamente:
+Em conformidade com o rigor científico do projeto, destacam-se as seguintes limitações do sistema atual:
 
-1. Abra um novo notebook no [Google Colab](https://colab.research.google.com/) e altere o ambiente de execução para **GPU T4** (`Editar > Configurações do ambiente de execução > GPU T4`).
-2. Execute a instalação do Ultralytics e Roboflow:
-   ```python
-   !pip install ultralytics roboflow
-   ```
-3. Baixe seu dataset do Roboflow no Colab:
-   ```python
-   from roboflow import Roboflow
-   rf = Roboflow(api_key="SUA_ROBOFLOW_API_KEY")
-   project = rf.workspace("SEU_WORKSPACE").project("SEU_PROJETO")
-   dataset = project.version(1).download("yolov8")
-   ```
-4. Inicie o treinamento:
-   ```python
-   from ultralytics import YOLO
-   model = YOLO("yolov8n.pt")
-   model.train(data=f"{dataset.location}/data.yaml", epochs=50, imgsz=640, batch=16)
-   ```
-5. Baixe o arquivo `best.pt` gerado em `runs/detect/train/weights/best.pt` e salve-o na pasta `models/best.pt` do seu repositório local.
+1. **Dependência da Qualidade da Mídia:** Em gravações com baixa resolução, compressão acentuada ou ângulos oblíquos severos, a precisão das detecções diminui.
+2. **Falsos Negativos em Veículos Distantes:** Veículos situados no fundo da cena com reduzida contagem de pixels podem não atingir o limiar de confiança.
+3. **Descontinuidades no Rastreamento:** Em situações de oclusão mútua prolongada (ex.: ônibus encobrindo motocicleta), o ByteTrack pode eventualmente perder ou alternar identificadores (*ID switch*).
+4. **Métrica Baseada em Travessias:** O sistema computa o volume de cortes transversais; veículos que manobram ou cruzam múltiplas linhas são contabilizados em cada seção correspondente.
+5. **Calibração Sensível ao Operador:** A acurácia da contagem requer que as linhas virtuais sejam traçadas em posições perpendiculares ao fluxo de tráfego.
+6. **Escopo Acadêmico:** O sistema consiste em uma prova de conceito para validação em bancada, não constituindo produto homologado para operações viárias de missão crítica.
 
 ---
 
-## 📸 Execução dos Testes e Inferência
+## 16. Módulos Investigados Preliminarmente
 
-Com o modelo treinado (`models/best.pt`), você pode realizar os testes em imagens ou vídeos.
+Durante as fases iniciais do estudo, foram elaboradas formulações teóricas e experimentais envolvendo:
+- Definição estática de Regiões de Interesse (**ROI**);
+- Métricas de densidade espacial por ocupação percentual de área;
+- Conversão para Unidades de Carro de Passageiro (**PCU**);
+- Algoritmos clássicos de temporização adaptativa (modelo SCATS/Webster).
 
-### 🟢 Teste em Imagem Estática (`src/test_image.py`)
-1. Coloque uma imagem (ex: `exemplo.jpg`) na pasta `media/inputs/`.
-2. Execute o script:
-   ```bash
-   python src/test_image.py
-   ```
-   *Nota: O script selecionará automaticamente a primeira imagem encontrada em `media/inputs/`.*
-
-3. Ou especifique uma imagem específica via argumento:
-   ```bash
-   python src/test_image.py -i media/inputs/minha_imagem.jpg --conf 0.30
-   ```
-4. O resultado anotado será exibido na tela via OpenCV e salvo em `media/outputs/output_exemplo.jpg`.
+Devido às variações de qualidade dos vídeos reais de tráfego urbano disponíveis, optou-se por focar o pipeline atual estritamente na **alta confiabilidade de detecção, rastreamento e contagem por linhas virtuais**. Os módulos conceituais de ROI e PCU não integram o pipeline funcional deste repositório.
 
 ---
 
-### 🎥 Rastreamento e Contagem em Vídeo com ByteTrack (`src/test_video.py`)
-1. Coloque um vídeo (ex: `video_teste.mp4`) na pasta `media/inputs/`.
-2. Execute o script de rastreamento e contagem:
-   ```bash
-   python src/test_video.py -i media/inputs/video_teste.mp4
-   ```
-   *Nota: O script selecionará automaticamente o primeiro vídeo em `media/inputs/` se o argumento `-i` não for informado.*
+## 17. Próximas Etapas e Trabalhos Futuros
 
-3. **🖱️ Definição Manual da Linha de Contagem com o Mouse:**
-   - Ao iniciar, a janela do vídeo abrirá pausada no primeiro quadro.
-   - **Desenhar Linha:** Pressione o **botão esquerdo do mouse**, arraste até o outro ponto desejado e solte o botão.
-   - **Confirmar:** Pressione **`[ENTER]`** ou **`[ESPAÇO]`** para confirmar a linha e iniciar a contagem do vídeo.
-   - **Redesenhar:** Pressione **`[R]`** para limpar a linha e desenhar novamente.
-   - **Sair:** Pressione **`[Q]`** ou **`[ESC]`** para encerrar o programa.
+Como continuidade do plano de pesquisa, as seguintes etapas estão **planejadas**:
 
-4. **⌨️ Controles Durante a Execução:**
-   - **`[Q]` ou `[ESC]`:** Interrompe a execução a qualquer momento e exibe o relatório final.
-   - **`[R]`:** Pausa o vídeo a qualquer momento e permite redefinir/redesenhar a linha de contagem com o mouse.
-
-5. **Opções Adicionais de Linha de Comando:**
-   - Calibração automática em vez de manual:
-     ```bash
-     python src/test_video.py --auto-line
-     ```
-   - Especificar coordenadas exatas via CLI (sem usar o mouse):
-     ```bash
-     python src/test_video.py --line-start 100 300 --line-end 800 300
-     ```
-   - Especificar confiança personalizada:
-     ```bash
-     python src/test_video.py --conf 0.30
-     ```
-   - Execução em segundo plano (sem janela gráfica):
-     ```bash
-     python src/test_video.py --no-show
-     ```
-
-6. **Durante o Rastreamento:**
-   - O algoritmo **ByteTrack** associa e mantém o mesmo `track_id` para cada veículo ao longo dos frames.
-   - Cada veículo recebe uma anotação visual: `ID: <track_id> | <classe> | <confiança>%`.
-   - A travessia da linha é calculada utilizando o centro inferior da bounding box do veículo e produto vetorial 2D. Cada `track_id` é contado estritamente uma única vez.
-   - O painel HUD translúcido exibe as contagens em tempo real por classe (`Carro`, `Motocicleta`, `Ônibus`, `Caminhão`) e o `TOTAL`.
-7. O vídeo final com todas as anotações e contagens será salvo em `media/outputs/output_<nome_do_video>.mp4`.
-8. Ao término, um relatório consolidado é exibido no terminal com a linha utilizada e totais por classe.
-
+- **Interface Web / Dashboard Interativo:** Construção de painel web para visualização gráfica das métricas e das curvas de fluxo ao longo do tempo.
+- **Georreferenciamento de Cruzamentos:** Mapa interativo da cidade de São Paulo indicando os pontos de coleta e o nível de serviço de cada aproximação.
+- **Simulador de Decisão Semafórica:** Implementação de algoritmo em ambiente simulado para sugerir ajustes na duração das fases verde/vermelho com base no volume medido pelas linhas virtuais.
 
 ---
 
-## 🔐 Segurança do Repositório
+## 18. Status Atual do Repositório
 
-Este repositório possui regras no `.gitignore` configuradas para garantir que:
-- Chaves de API no arquivo `.env` nunca sejam expostas no Git.
-- O arquivo de pesos `best.pt` e dados brutos de datasets não sejam commitados.
-- Suas imagens e vídeos de teste em `media/inputs/` e `media/outputs/` fiquem isolados no seu ambiente local.
+| Funcionalidade | Situação | Observações |
+| :--- | :---: | :--- |
+| Detecção com YOLO26s (Ultralytics) | Concluído | Modelo oficial COCO pré-treinado |
+| Filtro das 4 Classes Oficiais | Concluído | Carro, Motocicleta, Ônibus e Caminhão |
+| Rastreamento Multi-Objeto (ByteTrack) | Concluído | IDs contínuos ao longo dos quadros |
+| Linha Única de Contagem | Concluído | Operação com mouse ou argumentos CLI |
+| Múltiplas Linhas Dinâmicas ($1$ a $N$) | Concluído | Teclas `N`, `ENTER`, `R` e `Z` integradas |
+| Deduplicação Estrita por Linha | Concluído | `counted_ids` independente por linha |
+| Agregação de Totais por Modal | Concluído | Painel HUD consolidado no vídeo |
+| Vídeo Anotado de Saída | Concluído | Gravado em `media/outputs/` |
+| Suíte de Testes Automatizados | Concluído | Testes unitários, de interface e de vídeo |
+| Dashboard Web / Mapa | Planejado | Próxima fase do projeto de pesquisa |
+| Controle Semafórico Adaptativo | Planejado | Próxima fase do projeto de pesquisa |

@@ -24,7 +24,7 @@ from config import (
     LINE_START,
     LINE_END
 )
-from vehicle_counter import VehicleCounter
+from vehicle_counter import VehicleCounter, MultiLineVehicleCounter, LINE_PALETTE
 from auto_line import AutoLineDetector
 
 def get_model_class_mapping(model_names: Dict[int, str]) -> Dict[int, str]:
@@ -73,28 +73,32 @@ ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
 
 WINDOW_NAME = "Percepção e Contagem de Veículos"
 
-def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_line=None):
+def select_lines_interactively(initial_frame, window_name=WINDOW_NAME, initial_lines=None):
     """
-    Permite ao usuário desenhar manualmente a linha virtual de contagem com o mouse
-    diretamente sobre o primeiro quadro do vídeo antes do início do processamento.
+    Permite ao usuário definir interativamente de 1 a N linhas virtuais de contagem com o mouse
+    sobre o primeiro quadro do vídeo antes do início do processamento.
 
     Controles:
-    - Botão esquerdo pressionado + arrastar: define o segmento da linha virtual.
-    - [ENTER] ou [ESPAÇO]: confirma a linha e inicia a contagem.
-    - [R]: limpa a linha e permite redesenhar.
+    - Botão esquerdo pressionado + arrastar: define o segmento da linha ativa.
+    - [N]: confirma a linha ativa e inicia uma NOVA linha (L2, L3, ...).
+    - [ENTER] ou [ESPAÇO]: confirma todas as linhas válidas e inicia o processamento.
+    - [R]: redefine/limpa somente a linha ativa.
+    - [Z] ou [BACKSPACE]: desfaz a última linha confirmada e restaura para edição.
     - [Q] ou [ESC]: cancela e encerra a execução.
     """
     h, w = initial_frame.shape[:2]
+    confirmed_lines: List[Tuple[Tuple[int, int], Tuple[int, int]]] = list(initial_lines) if initial_lines else []
+    
     drawing = False
     pt_start = None
     pt_current = None
-    line_start = tuple(map(int, initial_line[0])) if initial_line else None
-    line_end = tuple(map(int, initial_line[1])) if initial_line else None
+    active_start = None
+    active_end = None
     warning_message = ""
     warning_frames = 0
 
     def mouse_callback(event, x, y, flags, param):
-        nonlocal drawing, pt_start, pt_current, line_start, line_end, warning_message, warning_frames
+        nonlocal drawing, pt_start, pt_current, active_start, active_end, warning_message, warning_frames
         clamped_x = max(0, min(w - 1, int(x)))
         clamped_y = max(0, min(h - 1, int(y)))
 
@@ -102,8 +106,8 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
             drawing = True
             pt_start = (clamped_x, clamped_y)
             pt_current = (clamped_x, clamped_y)
-            line_start = None
-            line_end = None
+            active_start = None
+            active_end = None
             warning_message = ""
             warning_frames = 0
 
@@ -117,11 +121,11 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
                 pt_end = (clamped_x, clamped_y)
                 dist = ((pt_end[0] - pt_start[0]) ** 2 + (pt_end[1] - pt_start[1]) ** 2) ** 0.5
                 if dist >= 10.0:
-                    line_start = pt_start
-                    line_end = pt_end
+                    active_start = pt_start
+                    active_end = pt_end
                 else:
-                    line_start = None
-                    line_end = None
+                    active_start = None
+                    active_end = None
                     warning_message = "Distancia muito curta! Arraste o mouse para tracar a linha."
                     warning_frames = 45
 
@@ -130,57 +134,74 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
 
     while True:
         display_frame = initial_frame.copy()
+        active_idx = len(confirmed_lines) + 1
+        active_color = LINE_PALETTE[(active_idx - 1) % len(LINE_PALETTE)]
 
-        # 1. Desenhar a linha enquanto o usuário está arrastando o mouse
+        # 1. Desenhar todas as linhas já confirmadas
+        for idx, (c_start, c_end) in enumerate(confirmed_lines, start=1):
+            c_color = LINE_PALETTE[(idx - 1) % len(LINE_PALETTE)]
+            cv2.line(display_frame, c_start, c_end, c_color, 3, cv2.LINE_AA)
+            cv2.circle(display_frame, c_start, 5, c_color, -1, cv2.LINE_AA)
+            cv2.circle(display_frame, c_end, 5, c_color, -1, cv2.LINE_AA)
+
+            tag_text = f"L{idx}"
+            tag_x = max(10, min(w - 50, c_start[0] + 8))
+            tag_y = max(20, min(h - 10, c_start[1] - 6))
+            (tw, th), _ = cv2.getTextSize(tag_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            cv2.rectangle(display_frame, (tag_x - 3, tag_y - th - 3), (tag_x + tw + 3, tag_y + 3), (15, 15, 15), -1)
+            cv2.rectangle(display_frame, (tag_x - 3, tag_y - th - 3), (tag_x + tw + 3, tag_y + 3), c_color, 1)
+            cv2.putText(display_frame, tag_text, (tag_x, tag_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # 2. Desenhar a linha ativa (em arrasto ou recém-posicionada)
         if drawing and pt_start and pt_current:
             cv2.line(display_frame, pt_start, pt_current, (0, 255, 255), 2, cv2.LINE_AA)
             cv2.circle(display_frame, pt_start, 5, (0, 255, 0), -1, cv2.LINE_AA)
             cv2.circle(display_frame, pt_current, 5, (0, 255, 255), -1, cv2.LINE_AA)
-            tooltip = f"({pt_current[0]}, {pt_current[1]})"
-            tt_x = min(w - 90, pt_current[0] + 12)
+            tooltip = f"L{active_idx}: ({pt_current[0]}, {pt_current[1]})"
+            tt_x = min(w - 110, pt_current[0] + 12)
             tt_y = max(20, pt_current[1] - 8)
             cv2.putText(display_frame, tooltip, (tt_x, tt_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
 
-        # 2. Desenhar a linha confirmada pelo término do arrasto
-        elif line_start and line_end:
-            cv2.line(display_frame, line_start, line_end, (0, 0, 255), 3, cv2.LINE_AA)
-            cv2.circle(display_frame, line_start, 6, (0, 0, 255), -1, cv2.LINE_AA)
-            cv2.circle(display_frame, line_end, 6, (0, 0, 255), -1, cv2.LINE_AA)
+        elif active_start and active_end:
+            cv2.line(display_frame, active_start, active_end, active_color, 3, cv2.LINE_AA)
+            cv2.circle(display_frame, active_start, 6, active_color, -1, cv2.LINE_AA)
+            cv2.circle(display_frame, active_end, 6, active_color, -1, cv2.LINE_AA)
 
-            cv2.putText(display_frame, f"A: {line_start}", (line_start[0] + 8, max(20, line_start[1] - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 255), 1, cv2.LINE_AA)
-            cv2.putText(display_frame, f"B: {line_end}", (line_end[0] + 8, max(20, line_end[1] - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 255), 1, cv2.LINE_AA)
-
-            mid_x = (line_start[0] + line_end[0]) // 2
-            mid_y = (line_start[1] + line_end[1]) // 2
-            cv2.putText(display_frame, "LINHA DE CONTAGEM", (mid_x + 10, max(20, mid_y - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
+            tag_text = f"L{active_idx} (ativa)"
+            tag_x = max(10, min(w - 90, active_start[0] + 8))
+            tag_y = max(20, min(h - 10, active_start[1] - 6))
+            (tw, th), _ = cv2.getTextSize(tag_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            cv2.rectangle(display_frame, (tag_x - 3, tag_y - th - 3), (tag_x + tw + 3, tag_y + 3), (15, 15, 15), -1)
+            cv2.rectangle(display_frame, (tag_x - 3, tag_y - th - 3), (tag_x + tw + 3, tag_y + 3), (0, 255, 255), 1)
+            cv2.putText(display_frame, tag_text, (tag_x, tag_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
         # 3. Painel HUD discreto e responsivo no canto superior esquerdo
         margin_x = max(10, int(w * 0.02))
         margin_y = max(10, int(h * 0.02))
 
-        # Textos e cores contextuais
         if warning_frames > 0 and warning_message:
             warning_frames -= 1
             title_text = "Aviso"
             sub_text = warning_message
             title_color = (0, 160, 255)
             sub_color = (240, 240, 240)
-        elif line_start and line_end:
-            title_text = "Linha de contagem definida"
-            sub_text = "[ENTER] Iniciar  |  [R] Redesenhar  |  [ESC] Sair"
+        elif active_start and active_end:
+            title_text = f"Linha L{active_idx} definida | Criadas: {len(confirmed_lines)}"
+            sub_text = "[N] Nova linha  |  [ENTER] Iniciar  |  [R] Redesenhar"
             title_color = (0, 255, 180)
             sub_color = (220, 220, 220)
         elif drawing:
-            title_text = "Defina a linha de contagem"
+            title_text = f"Desenhando linha L{active_idx}"
             sub_text = "Solte o botao para fixar a linha"
             title_color = (255, 255, 255)
             sub_color = (200, 200, 200)
         else:
-            title_text = "Defina a linha de contagem"
-            sub_text = "Clique e arraste para posicionar a linha"
+            if len(confirmed_lines) == 0:
+                title_text = "Defina a linha de contagem (L1)"
+                sub_text = "Clique e arraste para posicionar  |  [ENTER] Iniciar"
+            else:
+                title_text = f"Linha ativa: L{active_idx}  |  Criadas: {len(confirmed_lines)}"
+                sub_text = "Arraste para desenhar  |  [ENTER] Iniciar  |  [Z] Desfazer"
             title_color = (255, 255, 255)
             sub_color = (200, 200, 200)
 
@@ -202,7 +223,6 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
         (t_w, t_h), _ = cv2.getTextSize(title_text, cv2.FONT_HERSHEY_SIMPLEX, title_scale, 1)
         (s_w, s_h), _ = cv2.getTextSize(sub_text, cv2.FONT_HERSHEY_SIMPLEX, sub_scale, 1)
 
-        # Dimensionamento dinâmico do painel
         pad_x = max(10, int(w * 0.015))
         pad_y = max(7, int(h * 0.015))
         spacing = max(5, int(h * 0.01))
@@ -215,13 +235,11 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
         p_x2 = min(w - margin_x, p_x1 + panel_w)
         p_y2 = min(h - margin_y, p_y1 + panel_h)
 
-        # Fundo escuro semitransparente com borda discreta (design limpo de monitoramento)
         overlay = display_frame.copy()
         cv2.rectangle(overlay, (p_x1, p_y1), (p_x2, p_y2), (18, 20, 24), -1)
         cv2.rectangle(overlay, (p_x1, p_y1), (p_x2, p_y2), (70, 75, 85), 1)
         cv2.addWeighted(overlay, 0.80, display_frame, 0.20, 0, display_frame)
 
-        # Renderização das instruções
         title_baseline = p_y1 + pad_y + t_h
         sub_baseline = title_baseline + spacing + s_h
         cv2.putText(display_frame, title_text, (p_x1 + pad_x, title_baseline),
@@ -234,25 +252,72 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
 
         # Sair: Q ou ESC
         if key in (ord('q'), ord('Q'), 27):
-            return None, None
+            return None
 
-        # Redesenhar / Limpar: R
+        # Nova linha: N
+        elif key in (ord('n'), ord('N')):
+            if active_start is not None and active_end is not None:
+                confirmed_lines.append((active_start, active_end))
+                active_start = None
+                active_end = None
+                pt_start = None
+                pt_current = None
+                drawing = False
+                warning_message = f"L{len(confirmed_lines)} criada com sucesso! Desenhe L{len(confirmed_lines)+1}."
+                warning_frames = 35
+            else:
+                warning_message = "Defina a linha atual antes de criar outra."
+                warning_frames = 45
+
+        # Confirmar e iniciar: ENTER ou ESPACO
+        elif key in (13, 10, 32):
+            if active_start is not None and active_end is not None:
+                confirmed_lines.append((active_start, active_end))
+                active_start = None
+                active_end = None
+
+            if len(confirmed_lines) > 0:
+                return confirmed_lines
+            else:
+                warning_message = "Defina ao menos uma linha antes de iniciar!"
+                warning_frames = 45
+
+        # Redefinir somente a linha ativa: R
         elif key in (ord('r'), ord('R')):
-            line_start = None
-            line_end = None
+            active_start = None
+            active_end = None
             pt_start = None
             pt_current = None
             drawing = False
-            warning_message = "Linha limpa. Clique e arraste para desenhar novamente."
+            warning_message = f"Linha L{active_idx} limpa. Arraste novamente."
             warning_frames = 35
 
-        # Confirmar: ENTER (13 ou 10) ou ESPAÇO (32)
-        elif key in (13, 10, 32):
-            if line_start is not None and line_end is not None:
-                return line_start, line_end
+        # Desfazer última linha: Z ou BACKSPACE
+        elif key in (ord('z'), ord('Z'), 8):
+            if active_start is not None and active_end is not None:
+                active_start = None
+                active_end = None
+                warning_message = f"Linha ativa L{active_idx} descartada."
+                warning_frames = 35
+            elif len(confirmed_lines) > 0:
+                active_start, active_end = confirmed_lines.pop()
+                warning_message = f"L{len(confirmed_lines)+1} restaurada para edicao."
+                warning_frames = 35
             else:
-                warning_message = "Desenhe a linha com o mouse antes de confirmar!"
-                warning_frames = 50
+                warning_message = "Nenhuma linha para desfazer."
+                warning_frames = 35
+
+
+def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_line=None):
+    """
+    Função legada para seleção de uma única linha.
+    Mantida para compatibilidade direta.
+    """
+    initial_lines = [initial_line] if initial_line else None
+    lines = select_lines_interactively(initial_frame, window_name, initial_lines)
+    if lines and len(lines) > 0:
+        return lines[0]
+    return None, None
 
 def draw_tracking_annotations(frame, results, model_names, class_mapping):
     """
@@ -469,19 +534,13 @@ def main():
     line_mode_label = ""
     show_gui = not args.no_show
 
-    # Determinar modo de definição da linha
-    auto_detector = None
-    counter = None
-    line_mode_label = ""
-    show_gui = not args.no_show
-
     if args.line_start is not None and args.line_end is not None:
         # 1. Modo Manual via argumentos CLI
         line_mode_label = "Manual (CLI)"
         line_start = tuple(args.line_start)
         line_end = tuple(args.line_end)
-        counter = VehicleCounter(line_start=line_start, line_end=line_end)
-        print(f"📏 Linha Virtual de Contagem (Manual CLI): {counter.line_start} -> {counter.line_end}")
+        counter = MultiLineVehicleCounter.from_segments([(line_start, line_end)])
+        print(f"📏 Linha Virtual de Contagem (Manual CLI): {line_start} -> {line_end}")
 
     elif args.auto_line or (not show_gui and (args.line_start is None or args.line_end is None)):
         # 2. Modo de Auto-Calibração com AutoLineDetector
@@ -495,28 +554,29 @@ def main():
         )
 
     else:
-        # 3. Modo Manual Interativo com o MOUSE diretamente no vídeo
+        # 3. Modo Manual Interativo com o MOUSE diretamente no vídeo (1 a N linhas)
         line_mode_label = "Manual (Desenhada com Mouse)"
-        print("🖱️ Modo de DEFINIÇÃO MANUAL DA LINHA com o MOUSE ativado.")
-        print("💡 Janela de vídeo aberta: clique com o botão esquerdo e arraste para desenhar a linha.")
-        print("💡 Controles: [ENTER / ESPAÇO] Confirmar  |  [R] Redesenhar  |  [Q / ESC] Sair\n")
+        print("🖱️ Modo de DEFINIÇÃO MANUAL DE LINHAS com o MOUSE ativado.")
+        print("💡 Janela de vídeo aberta: clique e arraste para desenhar cada linha.")
+        print("💡 Controles: [N] Nova linha  |  [ENTER / ESPAÇO] Iniciar  |  [R] Redesenhar ativa  |  [Z] Desfazer  |  [Q / ESC] Sair\n")
 
         ret, first_frame = cap.read()
         if not ret or first_frame is None:
             print("❌ Erro ao carregar o primeiro quadro do vídeo.")
             sys.exit(1)
 
-        drawn_start, drawn_end = select_line_interactively(first_frame, WINDOW_NAME)
-        if drawn_start is None or drawn_end is None:
-            print("🛑 Processamento cancelado pelo usuário durante a definição da linha.")
+        drawn_lines = select_lines_interactively(first_frame, WINDOW_NAME)
+        if not drawn_lines:
+            print("🛑 Processamento cancelado pelo usuário durante a definição das linhas.")
             cap.release()
             out.release()
             cv2.destroyAllWindows()
             sys.exit(0)
 
-        # Instanciação direta do VehicleCounter com as coordenadas reais do mouse
-        counter = VehicleCounter(line_start=drawn_start, line_end=drawn_end)
-        print(f"📏 Linha Virtual de Contagem (Mouse): {counter.line_start} -> {counter.line_end}")
+        # Instanciação direta do MultiLineVehicleCounter com as coordenadas reais do mouse
+        counter = MultiLineVehicleCounter.from_segments(drawn_lines)
+        line_info = ", ".join([f"{l.label}: {l.line_start}->{l.line_end}" for l in counter.lines])
+        print(f"📏 Linhas Virtuais de Contagem ({len(counter.lines)}): {line_info}")
 
         # Reiniciar o vídeo para o frame 0 garantindo contagem e gravação desde o início
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -528,7 +588,7 @@ def main():
     print(f"🎯 Classes Filtradas na Inferência: {active_class_ids}")
     print(f"📐 Resolução: {width}x{height} | FPS: {fps:.1f} | Total de Frames: {total_frames}")
     if show_gui:
-        print("💡 Pressione 'q' ou 'ESC' para sair | Pressione 'r' para redefinir a linha.\n")
+        print("💡 Pressione 'q' ou 'ESC' para sair | Pressione 'r' para redefinir as linhas.\n")
 
     frame_count = 0
     try:
@@ -569,7 +629,7 @@ def main():
                 calibrated_now = auto_detector.step()
                 if calibrated_now:
                     calib_start, calib_end = auto_detector.calibrate()
-                    counter = VehicleCounter(line_start=calib_start, line_end=calib_end)
+                    counter = MultiLineVehicleCounter.from_segments([(calib_start, calib_end)])
                     # Semear últimas posições conhecidas para transição contínua
                     counter.previous_positions = auto_detector.get_last_positions()
                     print(f"🚦 [AUTO-CALIBRAÇÃO] Linha calibrada com sucesso: {calib_start} -> {calib_end}")
@@ -584,7 +644,7 @@ def main():
                 if counter is None and auto_detector is not None:
                     # Garantir que counter exista se a calibração foi concluída
                     calib_start, calib_end = auto_detector.calibrate()
-                    counter = VehicleCounter(line_start=calib_start, line_end=calib_end)
+                    counter = MultiLineVehicleCounter.from_segments([(calib_start, calib_end)])
                     counter.previous_positions = auto_detector.get_last_positions()
 
                 if boxes is not None and boxes.id is not None and counter is not None:
@@ -596,15 +656,16 @@ def main():
                             track_id = int(boxes.id[i])
                             canonical_cls = class_mapping[cls_id]
                             bbox = list(map(float, box.xyxy[0].tolist()))
-                            just_counted = counter.update(track_id, canonical_cls, bbox)
-                            if just_counted:
-                                pt_name = BOTI_CLASS_NAMES_PT.get(canonical_cls, canonical_cls)
-                                print(f"🚦 [CONTAGEM] {pt_name} (ID: {track_id}) cruzou a linha virtual! Total: {counter.get_total_count()}")
+                            events = counter.update(track_id, canonical_cls, bbox)
+                            for line, just_counted in events:
+                                if just_counted:
+                                    pt_name = BOTI_CLASS_NAMES_PT.get(canonical_cls, canonical_cls)
+                                    print(f"🚦 [CONTAGEM - {line.label}] {pt_name} (ID: {track_id}) cruzou a linha! Total Linha: {line.get_total_count()} | Total Geral: {counter.get_total_count()}")
 
                 # Desenhar bounding boxes com o rótulo formatado (ID: <track_id> | <classe> | <conf>%)
                 annotated_frame = draw_tracking_annotations(frame, results, model.names, class_mapping)
 
-                # Desenhar a linha virtual e o painel de contagem sobreposto
+                # Desenhar as linhas virtuais e o painel de contagem sobreposto
                 if counter is not None:
                     annotated_frame = counter.draw(annotated_frame)
 
@@ -622,20 +683,24 @@ def main():
                         print("\n⏹️ Processamento interrompido pelo usuário ('q' / ESC).")
                         break
 
-                    # Tecla R para redefinir/redesenhar a linha interativamente em tempo de execução
+                    # Tecla R para redefinir/redesenhar as linhas interativamente em tempo de execução
                     elif key in (ord('r'), ord('R')) and counter is not None:
-                        print("\n⏸️ Vídeo pausado para redefinição da linha de contagem com o mouse.")
-                        new_start, new_end = select_line_interactively(
+                        print("\n⏸️ Vídeo pausado para redefinição das linhas de contagem com o mouse.")
+                        current_segments = [(l.line_start, l.line_end) for l in counter.lines]
+                        new_lines = select_lines_interactively(
                             frame,
                             WINDOW_NAME,
-                            initial_line=(counter.line_start, counter.line_end)
+                            initial_lines=current_segments
                         )
-                        if new_start is not None and new_end is not None:
-                            counter.set_line(new_start, new_end)
+                        if new_lines and len(new_lines) > 0:
+                            new_counter = MultiLineVehicleCounter.from_segments(new_lines)
+                            new_counter.previous_positions = counter.previous_positions
+                            counter = new_counter
                             line_mode_label = "Manual (Redefinida com Mouse)"
-                            print(f"🔄 Linha Virtual Redefinida: {counter.line_start} -> {counter.line_end}")
+                            line_info = ", ".join([f"{l.label}: {l.line_start}->{l.line_end}" for l in counter.lines])
+                            print(f"🔄 Linhas Virtuais Redefinidas ({len(counter.lines)}): {line_info}")
                         else:
-                            print("ℹ️ Redefinição cancelada. Mantendo linha anterior.")
+                            print("ℹ️ Redefinição cancelada. Mantendo linhas anteriores.")
                 except cv2.error:
                     show_gui = False
                     print("⚠️ Interface gráfica indisponível. Continuando processamento em segundo plano...")
@@ -657,9 +722,9 @@ def main():
     if counter is None:
         if auto_detector is not None:
             calib_start, calib_end = auto_detector.calibrate()
-            counter = VehicleCounter(line_start=calib_start, line_end=calib_end)
+            counter = MultiLineVehicleCounter.from_segments([(calib_start, calib_end)])
         else:
-            counter = VehicleCounter(line_start=LINE_START, line_end=LINE_END)
+            counter = MultiLineVehicleCounter.from_segments([(LINE_START, LINE_END)])
 
     print(f"\n✅ Processamento e Contagem Concluídos!")
     print(f"📹 Vídeo anotado salvo com sucesso em: {output_path}")
@@ -667,15 +732,19 @@ def main():
     print("📊 RELATÓRIO OFICIAL DE CONTAGEM (BOTI)")
     print("="*45)
     print(f"  • Modo da Linha: {line_mode_label}")
-    print(f"  • Linha Utilizada: {counter.line_start} -> {counter.line_end}")
+    print(f"  • Total de Linhas: {len(counter.lines)}")
+    for line in counter.lines:
+        print(f"  • {line.label} ({line.line_id}): {line.line_start} -> {line.line_end} | Total: {line.get_total_count()}")
     if auto_detector is not None and auto_detector.flow_direction is not None:
         print(f"  • Fluxo Predominante: {auto_detector.flow_direction.upper()}")
     print("-" * 45)
+    print("  • CONTAGEM TOTAL POR CLASSE (CONSOLIDADA):")
+    total_by_class = counter.get_total_counts()
     for cls_key in ["car", "motorcycle", "bus", "truck"]:
         pt_name = BOTI_CLASS_NAMES_PT.get(cls_key, cls_key)
-        print(f"  • {pt_name}: {counter.counts[cls_key]}")
+        print(f"    - {pt_name}: {total_by_class.get(cls_key, 0)}")
     print("-" * 45)
-    print(f"  🏆 TOTAL DE VEÍCULOS: {counter.get_total_count()}")
+    print(f"  🏆 TOTAL DE VEÍCULOS (TRAVESSIAS): {counter.get_total_count()}")
     print("="*45 + "\n")
 
 

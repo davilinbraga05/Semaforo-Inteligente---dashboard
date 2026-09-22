@@ -55,7 +55,7 @@ BOTI_CLASS_COLORS: Dict[str, tuple] = {
 
 # Parâmetros padrão da camada de percepção (congelada)
 PERCEPTION_CONFIG = {
-    "model_path": "models/yolov8n.pt",
+    "model_path": "models/yolo26s.pt",
     "imgsz": 640,
     "conf": 0.25,
     "tracker": "bytetrack.yaml",

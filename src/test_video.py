@@ -71,7 +71,7 @@ load_dotenv()
 
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
 
-WINDOW_NAME = "BOTI - Percepção e Contagem de Veículos"
+WINDOW_NAME = "Percepção e Contagem de Veículos"
 
 def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_line=None):
     """
@@ -122,7 +122,7 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
                 else:
                     line_start = None
                     line_end = None
-                    warning_message = "Distância muito curta! Arraste o mouse para traçar a linha."
+                    warning_message = "Distancia muito curta! Arraste o mouse para tracar a linha."
                     warning_frames = 45
 
     cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
@@ -157,40 +157,77 @@ def select_line_interactively(initial_frame, window_name=WINDOW_NAME, initial_li
             cv2.putText(display_frame, "LINHA DE CONTAGEM", (mid_x + 10, max(20, mid_y - 8)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
-        # 3. Desenhar banner HUD com instruções no topo
-        banner_w = min(w - 40, 680)
-        banner_h = 74
-        banner_x1 = max(10, (w - banner_w) // 2)
-        banner_y1 = 15
-        banner_x2 = banner_x1 + banner_w
-        banner_y2 = banner_y1 + banner_h
+        # 3. Painel HUD discreto e responsivo no canto superior esquerdo
+        margin_x = max(10, int(w * 0.02))
+        margin_y = max(10, int(h * 0.02))
 
-        overlay = display_frame.copy()
-        cv2.rectangle(overlay, (banner_x1, banner_y1), (banner_x2, banner_y2), (20, 20, 20), -1)
-        cv2.rectangle(overlay, (banner_x1, banner_y1), (banner_x2, banner_y2), (0, 190, 255), 1)
-        cv2.addWeighted(overlay, 0.82, display_frame, 0.18, 0, display_frame)
-
-        cv2.putText(display_frame, "BOTI - DEFINICAO MANUAL DA LINHA DE CONTAGEM",
-                    (banner_x1 + 18, banner_y1 + 24),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
-
+        # Textos e cores contextuais
         if warning_frames > 0 and warning_message:
             warning_frames -= 1
-            cv2.putText(display_frame, f"Aviso: {warning_message}",
-                        (banner_x1 + 18, banner_y1 + 52),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 140, 255), 1, cv2.LINE_AA)
+            title_text = "Aviso"
+            sub_text = warning_message
+            title_color = (0, 160, 255)
+            sub_color = (240, 240, 240)
         elif line_start and line_end:
-            cv2.putText(display_frame, f"Linha: {line_start} -> {line_end}  |  [ENTER/ESPACO] Iniciar  |  [R] Redesenhar  |  [Q/ESC] Sair",
-                        (banner_x1 + 18, banner_y1 + 52),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.43, (0, 255, 180), 1, cv2.LINE_AA)
+            title_text = "Linha de contagem definida"
+            sub_text = "[ENTER] Iniciar  |  [R] Redesenhar  |  [ESC] Sair"
+            title_color = (0, 255, 180)
+            sub_color = (220, 220, 220)
         elif drawing:
-            cv2.putText(display_frame, "Solte o botao esquerdo para fixar os pontos da linha virtual.",
-                        (banner_x1 + 18, banner_y1 + 52),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 255, 255), 1, cv2.LINE_AA)
+            title_text = "Defina a linha de contagem"
+            sub_text = "Solte o botao para fixar a linha"
+            title_color = (255, 255, 255)
+            sub_color = (200, 200, 200)
         else:
-            cv2.putText(display_frame, "Clique com botao esquerdo e arraste para desenhar  |  [Q/ESC] Sair",
-                        (banner_x1 + 18, banner_y1 + 52),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1, cv2.LINE_AA)
+            title_text = "Defina a linha de contagem"
+            sub_text = "Clique e arraste para posicionar a linha"
+            title_color = (255, 255, 255)
+            sub_color = (200, 200, 200)
+
+        # Escalas de fonte responsivas calculadas de acordo com a resolução
+        base_scale = max(0.38, min(0.58, w / 1600.0))
+        title_scale = base_scale * 1.05
+        sub_scale = base_scale * 0.88
+
+        # Garantir que o texto nunca ultrapasse os limites da tela
+        max_allowed_w = w - (margin_x * 2) - 24
+        while max_allowed_w > 80:
+            (t_w, t_h), _ = cv2.getTextSize(title_text, cv2.FONT_HERSHEY_SIMPLEX, title_scale, 1)
+            (s_w, s_h), _ = cv2.getTextSize(sub_text, cv2.FONT_HERSHEY_SIMPLEX, sub_scale, 1)
+            if max(t_w, s_w) <= max_allowed_w or title_scale <= 0.28:
+                break
+            title_scale *= 0.92
+            sub_scale *= 0.92
+
+        (t_w, t_h), _ = cv2.getTextSize(title_text, cv2.FONT_HERSHEY_SIMPLEX, title_scale, 1)
+        (s_w, s_h), _ = cv2.getTextSize(sub_text, cv2.FONT_HERSHEY_SIMPLEX, sub_scale, 1)
+
+        # Dimensionamento dinâmico do painel
+        pad_x = max(10, int(w * 0.015))
+        pad_y = max(7, int(h * 0.015))
+        spacing = max(5, int(h * 0.01))
+
+        panel_w = max(t_w, s_w) + (2 * pad_x)
+        panel_h = t_h + s_h + (2 * pad_y) + spacing
+
+        p_x1 = margin_x
+        p_y1 = margin_y
+        p_x2 = min(w - margin_x, p_x1 + panel_w)
+        p_y2 = min(h - margin_y, p_y1 + panel_h)
+
+        # Fundo escuro semitransparente com borda discreta (design limpo de monitoramento)
+        overlay = display_frame.copy()
+        cv2.rectangle(overlay, (p_x1, p_y1), (p_x2, p_y2), (18, 20, 24), -1)
+        cv2.rectangle(overlay, (p_x1, p_y1), (p_x2, p_y2), (70, 75, 85), 1)
+        cv2.addWeighted(overlay, 0.80, display_frame, 0.20, 0, display_frame)
+
+        # Renderização das instruções
+        title_baseline = p_y1 + pad_y + t_h
+        sub_baseline = title_baseline + spacing + s_h
+        cv2.putText(display_frame, title_text, (p_x1 + pad_x, title_baseline),
+                    cv2.FONT_HERSHEY_SIMPLEX, title_scale, title_color, 1, cv2.LINE_AA)
+        cv2.putText(display_frame, sub_text, (p_x1 + pad_x, sub_baseline),
+                    cv2.FONT_HERSHEY_SIMPLEX, sub_scale, sub_color, 1, cv2.LINE_AA)
 
         cv2.imshow(window_name, display_frame)
         key = cv2.waitKey(20) & 0xFF
@@ -289,7 +326,7 @@ def draw_tracking_annotations(frame, results, model_names, class_mapping):
     return annotated_frame
 
 def main():
-    parser = argparse.ArgumentParser(description="Rastreamento de veículos com YOLOv8 e ByteTrack (BOTI).")
+    parser = argparse.ArgumentParser(description="Rastreamento de veículos com YOLO26s e ByteTrack (BOTI).")
     parser.add_argument(
         "-i", "--input", 
         type=str, 
@@ -344,18 +381,26 @@ def main():
     # Definir diretórios base do projeto
     base_dir = Path(__file__).resolve().parent.parent
     
-    # Modelo oficial do projeto: YOLOv8n
-    model_path = base_dir / "models" / "yolov8n.pt"
+    # Modelo oficial do projeto: YOLO26s (configuração centralizada)
+    model_path = base_dir / PERCEPTION_CONFIG["model_path"]
             
     inputs_dir = base_dir / "media" / "inputs"
     outputs_dir = base_dir / "media" / "outputs"
 
     outputs_dir.mkdir(parents=True, exist_ok=True)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Verificar se o arquivo do modelo existe
+    # Verificar se o arquivo do modelo existe; se não, obter via Ultralytics
     if not model_path.exists():
-        print(f"❌ Erro: O modelo '{model_path}' não foi encontrado.")
-        sys.exit(1)
+        print(f"🔄 Modelo '{model_path.name}' não foi encontrado em {model_path.parent}. Efetuando download oficial...")
+        try:
+            downloaded = YOLO("yolo26s.pt")
+            root_dl = base_dir / "yolo26s.pt"
+            if root_dl.exists() and root_dl != model_path:
+                root_dl.rename(model_path)
+        except Exception as e:
+            print(f"❌ Erro ao obter o modelo '{model_path}': {e}")
+            sys.exit(1)
 
     # Selecionar vídeo de entrada
     if args.input:
@@ -401,10 +446,8 @@ def main():
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 
-    # Carregar o modelo oficial YOLOv8n do projeto
-    model_path = Path("models/yolov8n.pt")
-
-    print(f"Carregando modelo YOLOv8n: {model_path}")
+    # Carregar o modelo oficial YOLO26s do projeto
+    print(f"Carregando modelo YOLO26s: {model_path}")
     model = YOLO(str(model_path))
 
     # Classes de veículos utilizadas pelo projeto (COCO)

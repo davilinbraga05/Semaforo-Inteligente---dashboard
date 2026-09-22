@@ -19,7 +19,7 @@ load_dotenv()
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
 
 def main():
-    parser = argparse.ArgumentParser(description="Teste de inferência YOLOv8 em imagens estáticas (BOTI).")
+    parser = argparse.ArgumentParser(description="Teste de inferência YOLO26s em imagens estáticas (BOTI).")
     parser.add_argument(
         "-i", "--input", 
         type=str, 
@@ -37,18 +37,24 @@ def main():
     # Definir diretórios base do projeto
     base_dir = Path(__file__).resolve().parent.parent
     model_path = base_dir / PERCEPTION_CONFIG["model_path"]
-    if not model_path.exists():
-        model_path = base_dir / "yolov8n.pt"
 
     inputs_dir = base_dir / "media" / "inputs"
     outputs_dir = base_dir / "media" / "outputs"
 
     outputs_dir.mkdir(parents=True, exist_ok=True)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Verificar existência do modelo oficial
+    # Verificar existência do modelo oficial; efetuar download se ausente
     if not model_path.exists():
-        print(f"❌ Erro: Modelo oficial 'yolov8n.pt' não encontrado em: {base_dir / 'models'}")
-        sys.exit(1)
+        print(f"🔄 Modelo '{model_path.name}' não encontrado localmente em {model_path.parent}. Efetuando download oficial...")
+        try:
+            downloaded = YOLO("yolo26s.pt")
+            root_dl = base_dir / "yolo26s.pt"
+            if root_dl.exists() and root_dl != model_path:
+                root_dl.rename(model_path)
+        except Exception as e:
+            print(f"❌ Erro ao obter o modelo '{model_path}': {e}")
+            sys.exit(1)
 
     # Selecionar imagem de entrada
     if args.input:
@@ -72,7 +78,7 @@ def main():
         print(f"❌ Erro: O arquivo de imagem especificado não existe: {image_path}")
         sys.exit(1)
 
-    print(f"🚀 Carregando modelo oficial YOLOv8: {model_path}")
+    print(f"🚀 Carregando modelo oficial YOLO26s: {model_path}")
     model = YOLO(str(model_path))
 
     print(f"📸 Processando imagem com filtro de classes BOTI {BOTI_CLASS_IDS}: {image_path.name}...")
@@ -103,7 +109,7 @@ def main():
 
     # Exibir imagem na janela OpenCV
     print("📺 Exibindo imagem... Pressione qualquer tecla na janela para fechar.")
-    cv2.imshow("BOTI - YOLOv8 Detecção em Imagem", annotated_image)
+    cv2.imshow("BOTI - YOLO26s Detecção em Imagem", annotated_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

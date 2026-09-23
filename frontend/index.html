@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Inteligente de Controle Semafórico — Fundação de Dados</title>
+  <meta name="description" content="Módulo base de cadastro e monitoramento dos cruzamentos urbanos do projeto de controle semafórico adaptativo.">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+  <!-- Barra de Cabeçalho Superior -->
+  <header class="header-bar">
+    <div class="header-content">
+      <div class="brand-wrapper">
+        <h1 class="system-title">Sistema Inteligente de Controle Semafórico</h1>
+        <p class="system-subtitle">Contagem e Classificação de Veículos com Visão Computacional</p>
+      </div>
+      <div class="header-status-badge">
+        <span class="status-dot"></span>
+        <span>Módulo de Dados: Operacional</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-container">
+    <section class="section-header">
+      <div class="section-title-group">
+        <h2>Pontos de Monitoramento Cadastrados</h2>
+        <p>Base geográfica oficial dos cruzamentos viários integrados ao sistema de visão computacional</p>
+      </div>
+      <div class="meta-stats">
+        <div class="meta-stat-item">
+          Total de Pontos: <strong id="stat-total-count">0</strong>
+        </div>
+        <div class="meta-stat-item">
+          Coordenadas Verificadas: <strong id="stat-verified-count">0 / 0</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- Indicador de Carregamento Inicial -->
+    <div id="state-loading" class="state-container state-loading">
+      <p>Carregando dados dos pontos de monitoramento...</p>
+    </div>
+
+    <!-- Container de Erro (Oculto por padrão) -->
+    <div id="state-error" class="state-error" role="alert"></div>
+
+    <!-- Grade Dinâmica dos 8 Cruzamentos -->
+    <div id="intersections-grid" class="intersections-grid" aria-live="polite"></div>
+  </main>
+
+  <!-- Rodapé Operacional -->
+  <footer class="footer-bar">
+    <div>
+      <span>São Paulo, SP — Base Cartográfica OpenStreetMap (ODbL)</span>
+    </div>
+    <div>
+      <span>Etapa 1A: Fundação de Dados e Cadastro Estruturado</span>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

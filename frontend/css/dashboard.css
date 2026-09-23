@@ -1,0 +1,345 @@
+/* ==========================================================================
+   Sistema Inteligente de Controle Semafórico
+   Folha de Estilos Base — Centro de Operações e Monitoramento
+   ========================================================================== */
+
+:root {
+  /* Paleta cromática operacional (Tons sóbrios de Centro de Controle) */
+  --bg-primary: #121417;
+  --bg-secondary: #1a1d21;
+  --surface: #22262c;
+  --surface-hover: #2a2f37;
+  --surface-active: #323842;
+  --border-subtle: #2d333b;
+  --border-medium: #3d4450;
+
+  /* Tipografia e Textos */
+  --text-primary: #f0f3f6;
+  --text-secondary: #9da7b3;
+  --text-muted: #6b7684;
+
+  /* Estados Funcionais */
+  --status-verified: #2ea043;
+  --status-verified-bg: rgba(46, 160, 67, 0.12);
+  --status-pending: #d29922;
+  --status-pending-bg: rgba(210, 153, 34, 0.12);
+  --status-danger: #f85149;
+  --status-danger-bg: rgba(248, 81, 73, 0.12);
+  --accent-blue: #388bfd;
+  --accent-blue-bg: rgba(56, 139, 253, 0.12);
+
+  /* Dimensões e Espaçamentos */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --transition-fast: 150ms ease;
+  --max-width: 1280px;
+}
+
+/* Reset básico e tipografia */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  font-size: 14px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Cabeçalho da Aplicação */
+.header-bar {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 16px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.system-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.system-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.header-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-verified);
+  display: inline-block;
+}
+
+/* Conteúdo Principal */
+.main-container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* Barra de Metadados e Controles */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.section-title-group h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.section-title-group p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.meta-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.meta-stat-item strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+/* Mensagens de Estado (Carregando e Erro) */
+.state-container {
+  padding: 32px 20px;
+  text-align: center;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+}
+
+.state-loading {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.state-error {
+  color: var(--status-danger);
+  background-color: var(--status-danger-bg);
+  border-color: rgba(248, 81, 73, 0.3);
+  font-size: 0.88rem;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  display: none;
+}
+
+/* Grade de Cruzamentos */
+.intersections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+/* Card Operacional de Cruzamento */
+.intersection-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.intersection-card:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-medium);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.camera-tag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  background-color: var(--accent-blue-bg);
+  border: 1px solid rgba(56, 139, 253, 0.25);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.badge-status {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-status.verified {
+  color: var(--status-verified);
+  background-color: var(--status-verified-bg);
+  border: 1px solid rgba(46, 160, 67, 0.3);
+}
+
+.badge-status.pending {
+  color: var(--status-pending);
+  background-color: var(--status-pending-bg);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+}
+
+.card-title-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intersection-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.intersection-location {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.card-details-table {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-label {
+  color: var(--text-muted);
+}
+
+.detail-value {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.card-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.card-footer-item span {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* Rodapé */
+.footer-bar {
+  max-width: var(--max-width);
+  margin: 32px auto 24px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .intersections-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .main-container {
+    padding: 16px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .meta-stats {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

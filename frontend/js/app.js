@@ -19,6 +19,7 @@ const App = (() => {
   // Estado único da aplicação
   let intersections = [];
   let selectedId = null;
+  let currentView = "map"; // "map" | "detail"
 
   // Elementos do DOM
   const elements = {};
@@ -29,6 +30,7 @@ const App = (() => {
   async function init() {
     cacheDomElements();
     setupWindowResize();
+    setupNavigationEvents();
 
     try {
       await loadIntersectionsData();
@@ -51,6 +53,32 @@ const App = (() => {
     elements.statVerified = document.getElementById("stat-verified-count");
     elements.mapFallback = document.getElementById("map-fallback-banner");
     elements.globalError = document.getElementById("global-error-banner");
+
+    // Views e Navegação da Etapa 1C
+    elements.mapView = document.getElementById("map-view");
+    elements.detailView = document.getElementById("detail-view");
+    elements.btnBackToMap = document.getElementById("btn-back-to-map");
+
+    // Elementos da Detail View (Tela Individual)
+    elements.detailCameraId = document.getElementById("detail-camera-id");
+    elements.detailStatusBadge = document.getElementById("detail-status-badge");
+    elements.detailIntersectionName = document.getElementById("detail-intersection-name");
+    elements.detailLocationDetail = document.getElementById("detail-location-detail");
+    elements.detailInfoCode = document.getElementById("detail-info-code");
+    elements.detailInfoShortName = document.getElementById("detail-info-short-name");
+    elements.detailInfoLocation = document.getElementById("detail-info-location");
+    elements.detailInfoCoordsStatus = document.getElementById("detail-info-coords-status");
+  }
+
+  /**
+   * Configura eventos de navegação global entre views.
+   */
+  function setupNavigationEvents() {
+    if (elements.btnBackToMap) {
+      elements.btnBackToMap.addEventListener("click", () => {
+        showMapView();
+      });
+    }
   }
 
   /**
@@ -237,8 +265,8 @@ const App = (() => {
             <span class="info-value">${escapeHtml(item.short_name || "-")}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Região / Bairro:</span>
-            <span class="info-value">${escapeHtml(item.location_detail ? item.location_detail.split("—")[0].trim() : "São Paulo")}</span>
+            <span class="info-label">Local:</span>
+            <span class="info-value">${escapeHtml(item.location_detail || "São Paulo, SP")}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Status no Sistema:</span>
@@ -246,11 +274,99 @@ const App = (() => {
           </div>
         </div>
 
+        <!-- Ação para abrir Tela Individual (Etapa 1C) -->
+        <div class="active-card-actions">
+          <button type="button" id="btn-analyze-intersection" class="btn-analyze-action" aria-label="Analisar cruzamento ${escapeHtml(item.camera_id || '')}">
+            Analisar cruzamento
+          </button>
+        </div>
+
         <div class="active-card-footnote">
           <span>Pronto para análise de fluxo e contagem veicular</span>
         </div>
       </div>
     `;
+
+    // Conectar evento ao botão de análise
+    const btnAnalyze = elements.activePointPanel.querySelector("#btn-analyze-intersection");
+    if (btnAnalyze) {
+      btnAnalyze.addEventListener("click", () => {
+        showDetailView();
+      });
+    }
+  }
+
+  /**
+   * Exibe a Tela Individual de Análise do Cruzamento (Detail View).
+   */
+  function showDetailView() {
+    if (!selectedId) return;
+
+    const item = intersections.find((i) => i.id === selectedId);
+    if (!item) return;
+
+    // 1. Preencher cabeçalho e dados da Detail View
+    if (elements.detailCameraId) {
+      elements.detailCameraId.textContent = item.camera_id || "CET";
+    }
+    if (elements.detailIntersectionName) {
+      elements.detailIntersectionName.textContent = item.name || "Cruzamento";
+    }
+    if (elements.detailLocationDetail) {
+      elements.detailLocationDetail.textContent = item.location_detail || "São Paulo, SP";
+    }
+
+    const isVerified = item.coordinate_status === "verified";
+    if (elements.detailStatusBadge) {
+      elements.detailStatusBadge.textContent = isVerified ? "Coordenadas verificadas" : "Coordenadas pendentes";
+      elements.detailStatusBadge.className = `detail-status-badge ${isVerified ? "verified" : "pending"}`;
+    }
+
+    // 2. Preencher tabela de informações do ponto
+    if (elements.detailInfoCode) {
+      elements.detailInfoCode.textContent = item.camera_id || "CET";
+    }
+    if (elements.detailInfoShortName) {
+      elements.detailInfoShortName.textContent = item.short_name || "-";
+    }
+    if (elements.detailInfoLocation) {
+      elements.detailInfoLocation.textContent = item.location_detail || "São Paulo, SP";
+    }
+    if (elements.detailInfoCoordsStatus) {
+      elements.detailInfoCoordsStatus.textContent = isVerified ? "Verificadas" : "Pendentes";
+      elements.detailInfoCoordsStatus.className = `info-value ${isVerified ? "status-val-verified" : "status-val-pending"}`;
+    }
+
+    // 3. Alternar exibição das views
+    currentView = "detail";
+    if (elements.mapView) {
+      elements.mapView.hidden = true;
+    }
+    if (elements.detailView) {
+      elements.detailView.hidden = false;
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /**
+   * Retorna à visualização de mapa (Map View).
+   */
+  function showMapView() {
+    currentView = "map";
+    if (elements.detailView) {
+      elements.detailView.hidden = true;
+    }
+    if (elements.mapView) {
+      elements.mapView.hidden = false;
+    }
+
+    // Leaflet recalcula dimensões após exibição do container
+    if (typeof TrafficMap !== "undefined" && TrafficMap.isAvailable()) {
+      TrafficMap.invalidateSize();
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   /**
@@ -302,6 +418,9 @@ const App = (() => {
   return {
     init,
     selectIntersection,
+    showDetailView,
+    showMapView,
+    getCurrentView: () => currentView,
     getSelectedId: () => selectedId,
     getIntersections: () => intersections,
   };

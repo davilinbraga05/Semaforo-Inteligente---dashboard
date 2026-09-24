@@ -570,6 +570,36 @@ body {
   text-align: center;
 }
 
+.active-card-actions {
+  margin-top: 4px;
+  display: flex;
+}
+
+.btn-analyze-action {
+  width: 100%;
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-analyze-action:hover {
+  background-color: #24587E;
+}
+
+.btn-analyze-action:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 /* ==========================================================================
    Marcadores Customizados do Leaflet (L.divIcon)
    Alta legibilidade técnica sobre os tiles do OpenStreetMap
@@ -664,6 +694,264 @@ body {
 }
 
 /* ==========================================================================
+   Visualizações da Aplicação (Map View e Detail View)
+   ========================================================================== */
+.view-section {
+  display: block;
+}
+
+.view-section[hidden] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Tela Individual do Cruzamento (Detail View — Etapa 1C)
+   ========================================================================== */
+.detail-view-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Barra de Navegação Superior (Voltar ao Mapa) */
+.detail-top-nav {
+  display: flex;
+  align-items: center;
+}
+
+.btn-back-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-back-nav:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-back-nav:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.btn-back-arrow {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* Cabeçalho da Detail View */
+.detail-header {
+  background-color: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detail-camera-badge {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  background-color: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.detail-status-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.detail-status-badge.verified {
+  color: var(--status-verified);
+  background-color: var(--status-verified-bg);
+  border: 1px solid var(--status-verified-border);
+}
+
+.detail-status-badge.pending {
+  color: var(--status-pending);
+  background-color: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+}
+
+.detail-status-pill {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.detail-intersection-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.detail-location-text {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+/* Grade Principal da Detail View (Vídeo + Informações) */
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.detail-video-column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Container de Vídeo 16:9 Padronizado (Obrigatoriamente 16/9 e 100% de largura) */
+.video-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: #1E2226;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.placeholder-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px dashed #41474D;
+  background-color: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.placeholder-icon-target {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #76818B;
+  display: inline-block;
+}
+
+.placeholder-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #E6EAED;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.placeholder-desc {
+  font-size: 0.78rem;
+  color: #A0AAB2;
+  margin-top: 4px;
+}
+
+/* Coluna Lateral da Detail View */
+.detail-info-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-info-card,
+.detail-status-card,
+.results-placeholder-block {
+  background-color: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+  padding: 16px;
+}
+
+.detail-info-table {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.status-val-verified {
+  color: var(--status-verified);
+  font-weight: 600;
+}
+
+.status-val-pending {
+  color: var(--status-pending);
+  font-weight: 600;
+}
+
+.status-neutral-text {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* Área Preparada para Resultados Futuros */
+.detail-results-section {
+  margin-top: 4px;
+}
+
+.results-placeholder-content {
+  padding: 12px 0 4px;
+}
+
+.results-neutral-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
    Rodapé Operacional
    ========================================================================== */
 .footer-bar {
@@ -692,6 +980,13 @@ body {
   .traffic-map-view {
     min-height: 520px;
     height: 520px;
+  }
+}
+
+@media (max-width: 900px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 
@@ -733,5 +1028,13 @@ body {
   .footer-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .detail-header {
+    padding: 14px 16px;
+  }
+
+  .detail-intersection-title {
+    font-size: 1.1rem;
   }
 }

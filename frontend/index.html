@@ -113,12 +113,18 @@
         <!-- Coluna Esquerda: Área de Vídeo 16:9 Padronizada -->
         <div class="detail-video-column">
           <div class="video-container" id="video-display-area">
-            <div class="video-placeholder">
+            <!-- Player HTML5 Genérico Único (Etapa 2A) -->
+            <video id="intersection-video-player" class="video-player-element" controls preload="metadata" playsinline hidden>
+              Seu navegador não suporta a reprodução deste vídeo processado.
+            </video>
+
+            <!-- Overlay / Placeholder de Estados do Vídeo -->
+            <div id="video-state-overlay" class="video-placeholder">
               <div class="placeholder-icon-circle" aria-hidden="true">
                 <span class="placeholder-icon-target"></span>
               </div>
-              <h4 class="placeholder-title">VISUALIZAÇÃO DO CRUZAMENTO</h4>
-              <p class="placeholder-desc">Área preparada para análise de vídeo</p>
+              <h4 id="video-placeholder-title" class="placeholder-title">VISUALIZAÇÃO DO CRUZAMENTO</h4>
+              <p id="video-placeholder-desc" class="placeholder-desc">Área preparada para análise de vídeo</p>
             </div>
           </div>
         </div>
@@ -129,7 +135,7 @@
           <div class="sidebar-block detail-info-card">
             <div class="sidebar-block-header">
               <h3 class="block-title">Informações do Ponto</h3>
-              <span class="block-subtitle">Cadastro oficial</span>
+              <span class="block-subtitle">Dados do ponto</span>
             </div>
             <div class="detail-info-table">
               <div class="info-row">
@@ -161,7 +167,7 @@
               <h3 class="block-title">Status da Análise</h3>
             </div>
             <div class="detail-status-content">
-              <p class="status-neutral-text">Aguardando integração dos resultados de processamento.</p>
+              <p id="detail-analysis-status-text" class="status-neutral-text">Aguardando integração dos resultados de processamento.</p>
             </div>
           </div>
         </div>

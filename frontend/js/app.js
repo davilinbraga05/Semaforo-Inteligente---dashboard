@@ -31,6 +31,7 @@ const App = (() => {
     cacheDomElements();
     setupWindowResize();
     setupNavigationEvents();
+    setupVideoEvents();
 
     try {
       await loadIntersectionsData();
@@ -68,6 +69,13 @@ const App = (() => {
     elements.detailInfoShortName = document.getElementById("detail-info-short-name");
     elements.detailInfoLocation = document.getElementById("detail-info-location");
     elements.detailInfoCoordsStatus = document.getElementById("detail-info-coords-status");
+    elements.detailAnalysisStatus = document.getElementById("detail-analysis-status-text");
+
+    // Elementos do Player de Vídeo (Etapa 2A)
+    elements.videoPlayer = document.getElementById("intersection-video-player");
+    elements.videoOverlay = document.getElementById("video-state-overlay");
+    elements.videoPlaceholderTitle = document.getElementById("video-placeholder-title");
+    elements.videoPlaceholderDesc = document.getElementById("video-placeholder-desc");
   }
 
   /**
@@ -79,6 +87,27 @@ const App = (() => {
         showMapView();
       });
     }
+  }
+
+  /**
+   * Configura eventos do elemento de vídeo HTML5.
+   */
+  function setupVideoEvents() {
+    if (!elements.videoPlayer) return;
+
+    elements.videoPlayer.addEventListener("canplay", () => {
+      setVideoState("ready");
+    });
+
+    elements.videoPlayer.addEventListener("error", (e) => {
+      console.warn("[App] Erro na reprodução do vídeo processado:", e);
+      const errCode = elements.videoPlayer.error ? elements.videoPlayer.error.code : 0;
+      if (errCode === 3 || errCode === 4) {
+        setVideoState("error");
+      } else {
+        setVideoState("unavailable");
+      }
+    });
   }
 
   /**
@@ -337,7 +366,10 @@ const App = (() => {
       elements.detailInfoCoordsStatus.className = `info-value ${isVerified ? "status-val-verified" : "status-val-pending"}`;
     }
 
-    // 3. Alternar exibição das views
+    // 3. Carregar dinamicamente o vídeo processado do cruzamento selecionado (Etapa 2A)
+    loadIntersectionVideo(item.output_video);
+
+    // 4. Alternar exibição das views
     currentView = "detail";
     if (elements.mapView) {
       elements.mapView.hidden = true;
@@ -353,6 +385,11 @@ const App = (() => {
    * Retorna à visualização de mapa (Map View).
    */
   function showMapView() {
+    // Pausar reprodução do vídeo ao sair da tela individual
+    if (elements.videoPlayer) {
+      elements.videoPlayer.pause();
+    }
+
     currentView = "map";
     if (elements.detailView) {
       elements.detailView.hidden = true;
@@ -367,6 +404,97 @@ const App = (() => {
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /**
+   * Define o estado visual do player e atualiza as mensagens informativas.
+   * @param {"loading"|"ready"|"unavailable"|"error"} state
+   */
+  function setVideoState(state) {
+    if (!elements.videoPlayer || !elements.videoOverlay) return;
+
+    if (state === "ready") {
+      elements.videoPlayer.hidden = false;
+      elements.videoOverlay.hidden = true;
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Vídeo processado disponível.";
+      }
+    } else if (state === "loading") {
+      elements.videoPlayer.hidden = true;
+      elements.videoOverlay.hidden = false;
+      if (elements.videoPlaceholderTitle) {
+        elements.videoPlaceholderTitle.textContent = "CARREGANDO VÍDEO";
+      }
+      if (elements.videoPlaceholderDesc) {
+        elements.videoPlaceholderDesc.textContent = "Carregando vídeo processado...";
+      }
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Carregando vídeo processado...";
+      }
+    } else if (state === "error") {
+      elements.videoPlayer.hidden = true;
+      elements.videoOverlay.hidden = false;
+      if (elements.videoPlaceholderTitle) {
+        elements.videoPlaceholderTitle.textContent = "FALHA NA REPRODUÇÃO";
+      }
+      if (elements.videoPlaceholderDesc) {
+        elements.videoPlaceholderDesc.textContent = "Não foi possível reproduzir o vídeo processado.";
+      }
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Não foi possível reproduzir o vídeo processado.";
+      }
+    } else {
+      // "unavailable"
+      elements.videoPlayer.hidden = true;
+      elements.videoOverlay.hidden = false;
+      if (elements.videoPlaceholderTitle) {
+        elements.videoPlaceholderTitle.textContent = "VÍDEO NÃO DISPONÍVEL";
+      }
+      if (elements.videoPlaceholderDesc) {
+        elements.videoPlaceholderDesc.textContent = "Vídeo processado ainda não disponível para este ponto.";
+      }
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Vídeo processado ainda não disponível.";
+      }
+    }
+  }
+
+  /**
+   * Configura e carrega o vídeo processado do cruzamento ativo.
+   * @param {string} videoPath Caminho do vídeo output
+   */
+  async function loadIntersectionVideo(videoPath) {
+    if (!elements.videoPlayer) return;
+
+    // 1. Interromper vídeo anterior, limpar source e zerar posição
+    elements.videoPlayer.pause();
+    elements.videoPlayer.removeAttribute("src");
+    elements.videoPlayer.currentTime = 0;
+
+    if (!videoPath) {
+      setVideoState("unavailable");
+      return;
+    }
+
+    // 2. Definir estado inicial de carregamento
+    setVideoState("loading");
+
+    // 3. Teste rápido de existência do recurso antes de atribuir ao player
+    try {
+      const response = await fetch(videoPath, { method: "HEAD" });
+      if (!response.ok) {
+        // Arquivo não existe no servidor (ex: 404)
+        setVideoState("unavailable");
+        return;
+      }
+
+      // 4. Arquivo existente no servidor: atribui ao player e aciona load()
+      elements.videoPlayer.src = videoPath;
+      elements.videoPlayer.load();
+    } catch (e) {
+      // Falha de rede ou indisponibilidade
+      setVideoState("unavailable");
+    }
   }
 
   /**
@@ -420,8 +548,11 @@ const App = (() => {
     selectIntersection,
     showDetailView,
     showMapView,
+    loadIntersectionVideo,
+    setVideoState,
     getCurrentView: () => currentView,
     getSelectedId: () => selectedId,
+    getVideoPlayer: () => elements.videoPlayer,
     getIntersections: () => intersections,
   };
 })();

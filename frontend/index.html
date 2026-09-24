@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema Inteligente de Controle Semafórico — Fundação de Dados</title>
-  <meta name="description" content="Módulo base de cadastro e monitoramento dos cruzamentos urbanos do projeto de controle semafórico adaptativo.">
+  <title>Sistema Inteligente de Controle Semafórico — Mapa Operacional</title>
+  <meta name="description" content="Centro de operações e mapa interativo dos cruzamentos viários monitorados com visão computacional para controle semafórico adaptativo.">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
 
-  <!-- Barra de Cabeçalho Superior -->
+  <!-- Barra de Cabeçalho Superior (Design System 1A) -->
   <header class="header-bar">
     <div class="header-content">
       <div class="brand-wrapper">
@@ -18,17 +19,31 @@
       </div>
       <div class="header-status-badge">
         <span class="status-dot"></span>
-        <span>Módulo de Dados: Operacional</span>
+        <span>Sistema de Monitoramento: Ativo</span>
       </div>
     </div>
   </header>
 
   <!-- Conteúdo Principal -->
   <main class="main-container">
+
+    <!-- Banner de Erro Global (Carregamento de Dados) -->
+    <div id="global-error-banner" class="global-error-banner" role="alert" style="display: none;"></div>
+
+    <!-- Banner de Fallback do Mapa (Disponibilidade dos Tiles OSM) -->
+    <div id="map-fallback-banner" class="map-fallback-banner" role="status" style="display: none;">
+      <span class="fallback-indicator" aria-hidden="true"></span>
+      <div class="fallback-content">
+        <strong class="fallback-title">Mapa temporariamente indisponível.</strong>
+        <span class="fallback-desc">Utilize a lista de pontos monitorados para navegação operacional.</span>
+      </div>
+    </div>
+
+    <!-- Barra de Metadados e Controles -->
     <section class="section-header">
       <div class="section-title-group">
-        <h2>Pontos de Monitoramento Cadastrados</h2>
-        <p>Base geográfica oficial dos cruzamentos viários integrados ao sistema de visão computacional</p>
+        <h2>Mapa Interativo dos Cruzamentos</h2>
+        <p>Supervisão geoespacial e seleção de pontos cadastrados para monitoramento de tráfego</p>
       </div>
       <div class="meta-stats">
         <div class="meta-stat-item">
@@ -40,16 +55,35 @@
       </div>
     </section>
 
-    <!-- Indicador de Carregamento Inicial -->
-    <div id="state-loading" class="state-container state-loading">
-      <p>Carregando dados dos pontos de monitoramento...</p>
+    <!-- Layout Centro de Monitoramento: Mapa e Painel Lateral -->
+    <div class="monitoring-layout">
+      <!-- Painel do Mapa Interativo -->
+      <section class="map-section" aria-label="Mapa de cruzamentos">
+        <div id="traffic-map" class="traffic-map-view" role="region" aria-label="Mapa cartográfico dos cruzamentos"></div>
+      </section>
+
+      <!-- Painel Lateral: Lista de Cruzamentos e Informações do Ponto Ativo -->
+      <aside class="sidebar-section" aria-label="Painel de controle lateral">
+        <!-- Lista de Cruzamentos -->
+        <div class="sidebar-block list-block">
+          <div class="sidebar-block-header">
+            <h3 class="block-title">Pontos Monitorados</h3>
+            <span class="block-subtitle">8 pontos cadastrados</span>
+          </div>
+          <div id="intersections-list" class="intersections-list" role="list" aria-label="Cruzamentos monitorados"></div>
+        </div>
+
+        <!-- Painel de Ponto Selecionado -->
+        <div class="sidebar-block active-point-block">
+          <div class="sidebar-block-header">
+            <h3 class="block-title">Ponto Ativo</h3>
+            <span class="block-subtitle">Informações do ponto</span>
+          </div>
+          <div id="active-point-panel" class="active-point-panel" aria-live="polite"></div>
+        </div>
+      </aside>
     </div>
 
-    <!-- Container de Erro (Oculto por padrão) -->
-    <div id="state-error" class="state-error" role="alert"></div>
-
-    <!-- Grade Dinâmica dos 8 Cruzamentos -->
-    <div id="intersections-grid" class="intersections-grid" aria-live="polite"></div>
   </main>
 
   <!-- Rodapé Operacional -->
@@ -58,10 +92,13 @@
       <span>São Paulo, SP — Base Cartográfica OpenStreetMap (ODbL)</span>
     </div>
     <div>
-      <span>Etapa 1A: Fundação de Dados e Cadastro Estruturado</span>
+      <span>Etapa 1B: Mapa Interativo dos Cruzamentos</span>
     </div>
   </footer>
 
+  <!-- Scripts: 1. Leaflet Local, 2. TrafficMap, 3. App -->
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/map.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

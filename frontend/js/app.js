@@ -1,149 +1,308 @@
 /**
  * Sistema Inteligente de Controle Semafórico
- * Módulo Base do Dashboard — Carregamento e Validação dos Pontos de Monitoramento
+ * Módulo Principal da Aplicação (app.js)
+ *
+ * Responsabilidades:
+ * - Carregamento do arquivo data/intersections.json.
+ * - Gerenciamento centralizado do estado de seleção (selectedIntersectionId).
+ * - Renderização da lista lateral acessível de cruzamentos.
+ * - Renderização do painel informativo do ponto ativo.
+ * - Sincronização bidirecional entre a lista e o mapa (map.js).
+ * - Tratamento gracioso de erros e fallbacks.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  initDashboard();
+  App.init();
 });
 
-async function initDashboard() {
-  const container = document.getElementById("intersections-grid");
-  const loadingIndicator = document.getElementById("state-loading");
-  const errorContainer = document.getElementById("state-error");
-  const countDisplay = document.getElementById("stat-total-count");
-  const verifiedDisplay = document.getElementById("stat-verified-count");
+const App = (() => {
+  // Estado único da aplicação
+  let intersections = [];
+  let selectedId = null;
 
-  try {
+  // Elementos do DOM
+  const elements = {};
+
+  /**
+   * Ponto de entrada da inicialização.
+   */
+  async function init() {
+    cacheDomElements();
+    setupWindowResize();
+
+    try {
+      await loadIntersectionsData();
+      initMapModule();
+      renderIntersectionsList();
+      renderActivePointDetails();
+    } catch (err) {
+      console.error("[App] Erro na inicialização da aplicação:", err);
+      showGlobalError("Não foi possível carregar os pontos de monitoramento. Verifique se data/intersections.json está acessível.");
+    }
+  }
+
+  /**
+   * Cache de referências aos elementos da interface.
+   */
+  function cacheDomElements() {
+    elements.listContainer = document.getElementById("intersections-list");
+    elements.activePointPanel = document.getElementById("active-point-panel");
+    elements.statTotal = document.getElementById("stat-total-count");
+    elements.statVerified = document.getElementById("stat-verified-count");
+    elements.mapFallback = document.getElementById("map-fallback-banner");
+    elements.globalError = document.getElementById("global-error-banner");
+  }
+
+  /**
+   * Carrega e valida os dados de data/intersections.json via fetch.
+   */
+  async function loadIntersectionsData() {
     const response = await fetch("data/intersections.json");
     if (!response.ok) {
-      throw new Error(`Falha na requisição HTTP: status ${response.status} (${response.statusText})`);
+      throw new Error(`Erro HTTP ao buscar JSON: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-
     if (!Array.isArray(data)) {
-      throw new Error("O arquivo de dados não contém uma lista válida de cruzamentos (esperado array).");
+      throw new Error("Formato inválido dos dados: esperado um array de cruzamentos.");
     }
 
-    // Ocultar estado de carregamento
-    if (loadingIndicator) {
-      loadingIndicator.style.display = "none";
+    intersections = data;
+
+    // Atualizar métricas no cabeçalho
+    if (elements.statTotal) {
+      elements.statTotal.textContent = intersections.length.toString();
     }
 
-    // Métricas do carregamento
-    let verifiedCount = 0;
+    const verifiedCount = intersections.filter(
+      (item) => item.coordinate_status === "verified" && item.latitude !== null && item.longitude !== null
+    ).length;
 
-    // Renderizar registros
-    container.innerHTML = "";
-    data.forEach((item) => {
-      const isVerified = item.coordinate_status === "verified" &&
-                         item.latitude !== null &&
-                         item.longitude !== null &&
-                         !isNaN(item.latitude) &&
-                         !isNaN(item.longitude);
-
-      if (isVerified) {
-        verifiedCount++;
-      }
-
-      const card = createIntersectionCard(item, isVerified);
-      container.appendChild(card);
-    });
-
-    // Atualizar estatísticas na barra
-    if (countDisplay) {
-      countDisplay.textContent = data.length.toString();
-    }
-    if (verifiedDisplay) {
-      verifiedDisplay.textContent = `${verifiedCount} / ${data.length}`;
-    }
-
-  } catch (error) {
-    console.error("[Dashboard] Erro ao carregar os pontos de monitoramento:", error);
-
-    if (loadingIndicator) {
-      loadingIndicator.style.display = "none";
-    }
-
-    if (errorContainer) {
-      errorContainer.textContent = "Não foi possível carregar os pontos de monitoramento. Verifique se o arquivo data/intersections.json está acessível.";
-      errorContainer.style.display = "block";
+    if (elements.statVerified) {
+      elements.statVerified.textContent = `${verifiedCount} / ${intersections.length}`;
     }
   }
-}
 
-/**
- * Cria o card DOM de um ponto de monitoramento.
- * @param {Object} item Dados do cruzamento
- * @param {boolean} isVerified Se as coordenadas estão validadas
- * @returns {HTMLElement} Elemento card construído
- */
-function createIntersectionCard(item, isVerified) {
-  const card = document.createElement("article");
-  card.className = "intersection-card";
-  card.id = `card-${item.id || "unknown"}`;
+  /**
+   * Inicializa o módulo cartográfico (map.js).
+   */
+  function initMapModule() {
+    if (typeof TrafficMap === "undefined") {
+      console.warn("[App] TrafficMap não disponível.");
+      showMapFallback();
+      return;
+    }
 
-  const coordsText = isVerified
-    ? `${Number(item.latitude).toFixed(6)}, ${Number(item.longitude).toFixed(6)}`
-    : "Coordenadas pendentes";
+    const mapSuccess = TrafficMap.init(
+      "traffic-map",
+      (markerId) => {
+        // Callback quando o usuário clica em um marcador no mapa
+        selectIntersection(markerId, "map");
+      },
+      () => {
+        // Callback se os tiles falharem
+        showMapFallback();
+      }
+    );
 
-  const statusClass = isVerified ? "verified" : "pending";
-  const statusLabel = isVerified ? "Verificada" : "Pendente";
+    if (mapSuccess) {
+      TrafficMap.renderMarkers(intersections, (markerId) => {
+        selectIntersection(markerId, "map");
+      });
+    } else {
+      showMapFallback();
+    }
+  }
 
-  // Extrair nome simples do arquivo de vídeo para exibição limpa
-  const videoInputName = item.input_video ? item.input_video.split("/").pop() : "Não vinculado";
+  /**
+   * Renderiza a lista vertical de cruzamentos no painel lateral.
+   */
+  function renderIntersectionsList() {
+    if (!elements.listContainer) return;
 
-  card.innerHTML = `
-    <div class="card-top">
-      <span class="camera-tag">${escapeHtml(item.camera_id || "CET-XX")}</span>
-      <span class="badge-status ${statusClass}">${statusLabel}</span>
-    </div>
+    elements.listContainer.innerHTML = "";
 
-    <div class="card-title-area">
-      <h3 class="intersection-name">${escapeHtml(item.name || "Cruzamento não identificado")}</h3>
-      <span class="intersection-location">${escapeHtml(item.location_detail || "São Paulo, SP")}</span>
-    </div>
+    intersections.forEach((item) => {
+      const isSelected = item.id === selectedId;
+      const isVerified = item.coordinate_status === "verified";
 
-    <div class="card-details-table">
-      <div class="detail-row">
-        <span class="detail-label">Nome Curto:</span>
-        <span class="detail-value">${escapeHtml(item.short_name || "-")}</span>
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `intersection-item-btn ${isSelected ? "selected" : ""}`;
+      btn.id = `list-item-${item.id}`;
+      btn.setAttribute("role", "listitem");
+      btn.setAttribute("aria-label", `${item.camera_id} - ${item.short_name}`);
+
+      btn.innerHTML = `
+        <div class="item-header">
+          <span class="item-camera-code">${escapeHtml(item.camera_id || "CET")}</span>
+          <span class="item-status-pill ${isVerified ? "verified" : "pending"}">
+            ${isVerified ? "Verificado" : "Pendente"}
+          </span>
+        </div>
+        <div class="item-name">${escapeHtml(item.short_name || item.name)}</div>
+        <div class="item-location">${escapeHtml(item.location_detail || "São Paulo, SP")}</div>
+      `;
+
+      // Evento de clique para seleção
+      btn.addEventListener("click", () => {
+        selectIntersection(item.id, "list");
+      });
+
+      // Suporte a teclado acessível (Enter / Space)
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          selectIntersection(item.id, "list");
+        }
+      });
+
+      elements.listContainer.appendChild(btn);
+    });
+  }
+
+  /**
+   * Sincronização centralizada da seleção de cruzamento (Bidirecional: Mapa <-> Lista).
+   * @param {string} id ID do cruzamento (e.g., "intersection_01")
+   * @param {"map"|"list"|"init"} source Origem do evento de seleção
+   */
+  function selectIntersection(id, source = "list") {
+    if (!id) return;
+
+    selectedId = id;
+
+    // 1. Atualizar classes ativas na lista lateral
+    const allButtons = elements.listContainer.querySelectorAll(".intersection-item-btn");
+    allButtons.forEach((btn) => btn.classList.remove("selected"));
+
+    const activeBtn = document.getElementById(`list-item-${id}`);
+    if (activeBtn) {
+      activeBtn.classList.add("selected");
+      // Se selecionado a partir do mapa, rolar suavemente a lista para visualizar o item
+      if (source === "map") {
+        activeBtn.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    }
+
+    // 2. Atualizar o marcador correspondente no mapa
+    if (typeof TrafficMap !== "undefined" && TrafficMap.isAvailable()) {
+      // Se veio da lista, move suavemente o mapa até o marcador (shouldPan = true)
+      // Se veio do próprio mapa, apenas destaca o marcador sem salto redundante (shouldPan = false)
+      const shouldPan = source === "list";
+      TrafficMap.selectMarker(id, shouldPan);
+    }
+
+    // 3. Atualizar o painel informativo lateral com os dados do ponto ativo
+    renderActivePointDetails();
+  }
+
+  /**
+   * Renderiza o painel informativo do cruzamento ativo.
+   */
+  function renderActivePointDetails() {
+    if (!elements.activePointPanel) return;
+
+    if (!selectedId) {
+      // Estado inicial sem seleção
+      elements.activePointPanel.innerHTML = `
+        <div class="active-point-empty">
+          <div class="empty-icon-circle" aria-hidden="true"><span class="empty-icon-target"></span></div>
+          <h4 class="empty-title">Ponto não selecionado</h4>
+          <p class="empty-desc">Selecione um cruzamento no mapa ou na lista lateral para visualizar as informações operacionais.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const item = intersections.find((i) => i.id === selectedId);
+    if (!item) return;
+
+    const isVerified = item.coordinate_status === "verified";
+
+    elements.activePointPanel.innerHTML = `
+      <div class="active-point-card">
+        <div class="active-card-top">
+          <span class="active-camera-badge">${escapeHtml(item.camera_id || "CET")}</span>
+          <span class="active-status-badge ${isVerified ? "verified" : "pending"}">
+            ${isVerified ? "Coordenadas Verificadas" : "Coordenadas Pendentes"}
+          </span>
+        </div>
+
+        <h3 class="active-point-title">${escapeHtml(item.name || "Cruzamento")}</h3>
+        <p class="active-point-subtitle">${escapeHtml(item.location_detail || "São Paulo, SP")}</p>
+
+        <div class="active-point-info-grid">
+          <div class="info-row">
+            <span class="info-label">Identificação Curta:</span>
+            <span class="info-value">${escapeHtml(item.short_name || "-")}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Região / Bairro:</span>
+            <span class="info-value">${escapeHtml(item.location_detail ? item.location_detail.split("—")[0].trim() : "São Paulo")}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status no Sistema:</span>
+            <span class="info-value active-val-ready">Ponto disponível para análise</span>
+          </div>
+        </div>
+
+        <div class="active-card-footnote">
+          <span>Pronto para análise de fluxo e contagem veicular</span>
+        </div>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">Coordenadas:</span>
-        <span class="detail-value">${coordsText}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Vídeo de Entrada:</span>
-        <span class="detail-value">${escapeHtml(videoInputName)}</span>
-      </div>
-    </div>
+    `;
+  }
 
-    <div class="card-footer">
-      <div class="card-footer-item">
-        ID: <span>${escapeHtml(item.id || "-")}</span>
-      </div>
-      <div class="card-footer-item">
-        Status: <span>${escapeHtml(item.status || "available")}</span>
-      </div>
-    </div>
-  `;
+  /**
+   * Exibe aviso discreto caso os tiles do mapa estejam indisponíveis.
+   */
+  function showMapFallback() {
+    if (elements.mapFallback) {
+      elements.mapFallback.style.display = "flex";
+    }
+  }
 
-  return card;
-}
+  /**
+   * Exibe mensagem global caso o JSON não possa ser carregado.
+   * @param {string} msg Mensagem de erro
+   */
+  function showGlobalError(msg) {
+    if (elements.globalError) {
+      elements.globalError.textContent = msg;
+      elements.globalError.style.display = "block";
+    }
+  }
 
-/**
- * Sanitiza strings para exibição segura no DOM.
- * @param {string} str Texto original
- * @returns {string} Texto seguro
- */
-function escapeHtml(str) {
-  if (typeof str !== "string") return String(str ?? "");
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+  /**
+   * Ajusta o mapa quando a janela é redimensionada.
+   */
+  function setupWindowResize() {
+    window.addEventListener("resize", () => {
+      if (typeof TrafficMap !== "undefined" && TrafficMap.isAvailable()) {
+        TrafficMap.invalidateSize();
+      }
+    });
+  }
+
+  /**
+   * Sanitiza strings contra injeção de HTML.
+   * @param {string} str Texto de entrada
+   * @returns {string} Texto seguro
+   */
+  function escapeHtml(str) {
+    if (typeof str !== "string") return String(str ?? "");
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  return {
+    init,
+    selectIntersection,
+    getSelectedId: () => selectedId,
+    getIntersections: () => intersections,
+  };
+})();

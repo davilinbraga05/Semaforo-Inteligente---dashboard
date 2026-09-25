@@ -21,6 +21,13 @@ const App = (() => {
   let selectedId = null;
   let currentView = "map"; // "map" | "detail"
 
+  // Estado da Execução Demonstrativa de Análise (Etapa 2A.1)
+  let prepTimeout = null;
+  let isAnalysisActive = false;
+  let isSeeking = false;
+  let videoLoadToken = 0;
+  let activeIntersectionId = null;
+
   // Elementos do DOM
   const elements = {};
 
@@ -32,6 +39,7 @@ const App = (() => {
     setupWindowResize();
     setupNavigationEvents();
     setupVideoEvents();
+    setupCustomControlsEvents();
 
     try {
       await loadIntersectionsData();
@@ -71,11 +79,31 @@ const App = (() => {
     elements.detailInfoCoordsStatus = document.getElementById("detail-info-coords-status");
     elements.detailAnalysisStatus = document.getElementById("detail-analysis-status-text");
 
-    // Elementos do Player de Vídeo (Etapa 2A)
+    // Elementos do Player de Vídeo e Execução Demonstrativa (Etapas 2A e 2A.1)
     elements.videoPlayer = document.getElementById("intersection-video-player");
     elements.videoOverlay = document.getElementById("video-state-overlay");
     elements.videoPlaceholderTitle = document.getElementById("video-placeholder-title");
     elements.videoPlaceholderDesc = document.getElementById("video-placeholder-desc");
+    elements.videoContainer = document.getElementById("video-display-area");
+
+    // Componentes da Interface Técnica de Análise (Etapa 2A.1)
+    elements.analysisExecHeader = document.getElementById("analysis-execution-header");
+    elements.analysisStatusBadge = document.getElementById("analysis-status-badge");
+    elements.analysisStatusText = document.getElementById("analysis-status-text");
+    elements.analysisReadyOverlay = document.getElementById("analysis-ready-overlay");
+    elements.btnStartAnalysis = document.getElementById("btn-start-analysis");
+    elements.analysisPrepOverlay = document.getElementById("analysis-prep-overlay");
+    elements.prepOverlayTitle = document.getElementById("prep-overlay-title");
+    elements.prepOverlayDesc = document.getElementById("prep-overlay-desc");
+    elements.analysisEndedOverlay = document.getElementById("analysis-ended-overlay");
+    elements.btnRestartAnalysisOverlay = document.getElementById("btn-restart-analysis-overlay");
+    elements.videoControls = document.getElementById("video-custom-controls");
+    elements.btnPlayPause = document.getElementById("btn-control-playpause");
+    elements.playPauseText = document.getElementById("control-playpause-text");
+    elements.btnRestart = document.getElementById("btn-control-restart");
+    elements.seekSlider = document.getElementById("video-seek-slider");
+    elements.timerDisplay = document.getElementById("video-timer-display");
+    elements.btnFullscreen = document.getElementById("btn-control-fullscreen");
   }
 
   /**
@@ -90,24 +118,363 @@ const App = (() => {
   }
 
   /**
+   * Executa o reset forte e imediato do elemento de vídeo HTML5.
+   * Descarta buffer, frame anterior, metadados e current source do navegador.
+   */
+  function resetVideoElement() {
+    if (!elements.videoPlayer) return;
+
+    // 1. Pausa imediatamente a reprodução
+    elements.videoPlayer.pause();
+
+    // 2. Oculta o elemento para que nenhum frame residual seja visível
+    elements.videoPlayer.hidden = true;
+    elements.videoPlayer.style.display = "none";
+
+    // 3. Remove source e força descarga completa da mídia decodificada anterior
+    elements.videoPlayer.removeAttribute("src");
+    try {
+      elements.videoPlayer.load();
+    } catch (e) {
+      // Ignora erro de load vazio
+    }
+
+    // 4. Reseta tempo com segurança
+    try {
+      elements.videoPlayer.currentTime = 0;
+    } catch (e) {}
+  }
+
+  /**
    * Configura eventos do elemento de vídeo HTML5.
    */
   function setupVideoEvents() {
     if (!elements.videoPlayer) return;
 
     elements.videoPlayer.addEventListener("canplay", () => {
-      setVideoState("ready");
+      // Proteção: apenas o cruzamento ativo no token atual pode atualizar o estado
+      if (selectedId !== activeIntersectionId) return;
+
+      // Se a análise ainda não foi iniciada pelo usuário, entra no estado READY (pré-execução)
+      if (!isAnalysisActive) {
+        setVideoState("ready", videoLoadToken);
+      }
+    });
+
+    elements.videoPlayer.addEventListener("loadedmetadata", () => {
+      if (selectedId !== activeIntersectionId) return;
+
+      if (elements.timerDisplay && elements.videoPlayer) {
+        elements.timerDisplay.textContent = `00:00 / ${formatTime(elements.videoPlayer.duration || 0)}`;
+      }
+
+      // Se ainda não iniciou, loadedmetadata também assegura READY
+      if (!isAnalysisActive) {
+        setVideoState("ready", videoLoadToken);
+      }
+    });
+
+    elements.videoPlayer.addEventListener("timeupdate", () => {
+      if (!elements.videoPlayer || !isAnalysisActive) return;
+      const current = elements.videoPlayer.currentTime || 0;
+      const duration = elements.videoPlayer.duration || 0;
+
+      if (!isSeeking && duration > 0 && elements.seekSlider) {
+        elements.seekSlider.value = ((current / duration) * 100).toFixed(1);
+      }
+
+      if (elements.timerDisplay) {
+        elements.timerDisplay.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
+      }
+    });
+
+    elements.videoPlayer.addEventListener("play", () => {
+      if (isAnalysisActive) {
+        if (elements.playPauseText) elements.playPauseText.textContent = "Pausar";
+        updateExecutionBadge("playing");
+        if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = true;
+      }
+    });
+
+    elements.videoPlayer.addEventListener("pause", () => {
+      if (isAnalysisActive && !elements.videoPlayer.ended) {
+        if (elements.playPauseText) elements.playPauseText.textContent = "Continuar";
+        updateExecutionBadge("paused");
+      }
+    });
+
+    elements.videoPlayer.addEventListener("ended", () => {
+      if (isAnalysisActive) {
+        if (elements.playPauseText) elements.playPauseText.textContent = "Reiniciar";
+        updateExecutionBadge("ended");
+        if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = false;
+        if (elements.detailAnalysisStatus) {
+          elements.detailAnalysisStatus.textContent = "Execução demonstrativa concluída.";
+        }
+      }
     });
 
     elements.videoPlayer.addEventListener("error", (e) => {
+      // Ignora erro se o elemento está sem src devido a reset intencional
+      if (!elements.videoPlayer.hasAttribute("src") && !elements.videoPlayer.currentSrc) {
+        return;
+      }
+
+      if (selectedId !== activeIntersectionId) return;
+
       console.warn("[App] Erro na reprodução do vídeo processado:", e);
       const errCode = elements.videoPlayer.error ? elements.videoPlayer.error.code : 0;
       if (errCode === 3 || errCode === 4) {
-        setVideoState("error");
+        setVideoState("error", videoLoadToken);
       } else {
-        setVideoState("unavailable");
+        setVideoState("unavailable", videoLoadToken);
       }
     });
+  }
+
+  /**
+   * Configura eventos dos controles customizados e transições da análise (Etapa 2A.1).
+   */
+  function setupCustomControlsEvents() {
+    // Botão Principal: INICIAR ANÁLISE
+    if (elements.btnStartAnalysis) {
+      elements.btnStartAnalysis.addEventListener("click", () => {
+        startAnalysisExecution();
+      });
+    }
+
+    // Botão Pausar / Continuar
+    if (elements.btnPlayPause) {
+      elements.btnPlayPause.addEventListener("click", () => {
+        if (!elements.videoPlayer) return;
+        if (elements.videoPlayer.ended) {
+          elements.videoPlayer.currentTime = 0;
+          if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = true;
+          elements.videoPlayer.play().catch(() => {});
+        } else if (elements.videoPlayer.paused) {
+          elements.videoPlayer.play().catch(() => {});
+        } else {
+          elements.videoPlayer.pause();
+        }
+      });
+    }
+
+    // Botão Reiniciar (Barra de Controles)
+    if (elements.btnRestart) {
+      elements.btnRestart.addEventListener("click", () => {
+        restartAnalysisExecution();
+      });
+    }
+
+    // Botão Reiniciar (Overlay de Conclusão)
+    if (elements.btnRestartAnalysisOverlay) {
+      elements.btnRestartAnalysisOverlay.addEventListener("click", () => {
+        restartAnalysisExecution();
+      });
+    }
+
+    // Slider de Seek (Progresso da Análise)
+    if (elements.seekSlider) {
+      elements.seekSlider.addEventListener("input", () => {
+        if (!elements.videoPlayer || !elements.videoPlayer.duration) return;
+        isSeeking = true;
+        const targetTime = (parseFloat(elements.seekSlider.value) / 100) * elements.videoPlayer.duration;
+        elements.videoPlayer.currentTime = targetTime;
+        if (elements.timerDisplay) {
+          elements.timerDisplay.textContent = `${formatTime(targetTime)} / ${formatTime(elements.videoPlayer.duration)}`;
+        }
+      });
+
+      elements.seekSlider.addEventListener("change", () => {
+        isSeeking = false;
+      });
+    }
+
+    // Botão Tela Cheia
+    if (elements.btnFullscreen) {
+      elements.btnFullscreen.addEventListener("click", () => {
+        toggleFullscreen();
+      });
+    }
+  }
+
+  /**
+   * Inicia o fluxo de execução demonstrativa com transição honesta de preparação.
+   */
+  function startAnalysisExecution() {
+    if (prepTimeout) {
+      clearTimeout(prepTimeout);
+      prepTimeout = null;
+    }
+
+    // 1. Ocultar estado "Análise pronta"
+    if (elements.analysisReadyOverlay) {
+      elements.analysisReadyOverlay.hidden = true;
+    }
+
+    // 2. Entrar em estado de preparação curto (~1000ms)
+    if (elements.analysisPrepOverlay) {
+      elements.analysisPrepOverlay.hidden = false;
+    }
+    if (elements.prepOverlayTitle) {
+      elements.prepOverlayTitle.textContent = "Preparando visualização...";
+    }
+    if (elements.prepOverlayDesc) {
+      elements.prepOverlayDesc.textContent = "Carregando análise processada do cruzamento";
+    }
+    if (elements.detailAnalysisStatus) {
+      elements.detailAnalysisStatus.textContent = "Preparando visualização da análise...";
+    }
+
+    // Capturar o token e cruzamento atuais para proteger contra trocas durante a preparação
+    const prepToken = videoLoadToken;
+    const prepExpectedId = selectedId;
+
+    prepTimeout = setTimeout(() => {
+      prepTimeout = null;
+
+      // Se o usuário trocou de tela ou de ponto durante a preparação, cancela!
+      if (prepToken !== videoLoadToken || selectedId !== prepExpectedId || currentView !== "detail") {
+        return;
+      }
+
+      isAnalysisActive = true;
+
+      // 3. Ocultar preparação e exibir interface técnica de execução
+      if (elements.analysisPrepOverlay) {
+        elements.analysisPrepOverlay.hidden = true;
+      }
+
+      // 4. SOMENTE AQUI o vídeo é revelado!
+      if (elements.videoPlayer) {
+        elements.videoPlayer.hidden = false;
+        elements.videoPlayer.style.display = "block";
+        elements.videoPlayer.currentTime = 0;
+      }
+
+      if (elements.analysisExecHeader) {
+        elements.analysisExecHeader.hidden = false;
+      }
+      if (elements.videoControls) {
+        elements.videoControls.hidden = false;
+      }
+
+      updateExecutionBadge("playing");
+
+      // 5. Iniciar reprodução do vídeo processado
+      if (elements.videoPlayer) {
+        elements.videoPlayer.play().catch((err) => {
+          console.warn("[App] Reprodução automática bloqueada pelo navegador:", err);
+          updateExecutionBadge("paused");
+        });
+      }
+
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Execução demonstrativa em andamento.";
+      }
+    }, 1000);
+  }
+
+  /**
+   * Reinicia a execução demonstrativa a partir do início.
+   */
+  function restartAnalysisExecution() {
+    if (!elements.videoPlayer) return;
+    elements.videoPlayer.currentTime = 0;
+    if (elements.analysisEndedOverlay) {
+      elements.analysisEndedOverlay.hidden = true;
+    }
+    elements.videoPlayer.play().catch(() => {});
+  }
+
+  /**
+   * Alterna modo tela cheia de forma segura e com suporte a diferentes navegadores.
+   */
+  function toggleFullscreen() {
+    const targetElement = elements.videoContainer || elements.videoPlayer;
+    if (!targetElement) return;
+
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      if (targetElement.requestFullscreen) {
+        targetElement.requestFullscreen().catch(() => {});
+      } else if (targetElement.webkitRequestFullscreen) {
+        targetElement.webkitRequestFullscreen();
+      } else if (elements.videoPlayer && elements.videoPlayer.webkitEnterFullscreen) {
+        elements.videoPlayer.webkitEnterFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  }
+
+  /**
+   * Atualiza o selo técnico e status da execução demonstrativa.
+   * @param {"playing"|"paused"|"ended"} state
+   */
+  function updateExecutionBadge(state) {
+    if (!elements.analysisStatusBadge || !elements.analysisStatusText) return;
+
+    if (state === "playing") {
+      elements.analysisStatusBadge.className = "exec-status-badge";
+      elements.analysisStatusText.textContent = "EXECUÇÃO DEMONSTRATIVA";
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Execução demonstrativa em andamento.";
+      }
+    } else if (state === "paused") {
+      elements.analysisStatusBadge.className = "exec-status-badge paused";
+      elements.analysisStatusText.textContent = "ANÁLISE PAUSADA";
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Análise pausada.";
+      }
+    } else if (state === "ended") {
+      elements.analysisStatusBadge.className = "exec-status-badge ended";
+      elements.analysisStatusText.textContent = "ANÁLISE CONCLUÍDA";
+      if (elements.detailAnalysisStatus) {
+        elements.detailAnalysisStatus.textContent = "Execução demonstrativa concluída.";
+      }
+    }
+  }
+
+  /**
+   * Reseta completamente os estados e elementos visuais da interface de execução.
+   */
+  function resetAnalysisExecutionState() {
+    if (prepTimeout) {
+      clearTimeout(prepTimeout);
+      prepTimeout = null;
+    }
+    isAnalysisActive = false;
+    isSeeking = false;
+
+    if (elements.analysisExecHeader) elements.analysisExecHeader.hidden = true;
+    if (elements.analysisReadyOverlay) elements.analysisReadyOverlay.hidden = true;
+    if (elements.analysisPrepOverlay) elements.analysisPrepOverlay.hidden = true;
+    if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = true;
+    if (elements.videoControls) elements.videoControls.hidden = true;
+
+    if (elements.playPauseText) elements.playPauseText.textContent = "Pausar";
+    if (elements.seekSlider) elements.seekSlider.value = "0";
+    if (elements.timerDisplay) elements.timerDisplay.textContent = "00:00 / 00:00";
+    if (elements.analysisStatusBadge && elements.analysisStatusText) {
+      elements.analysisStatusBadge.className = "exec-status-badge";
+      elements.analysisStatusText.textContent = "EXECUÇÃO DEMONSTRATIVA";
+    }
+  }
+
+  /**
+   * Converte segundos em formato mm:ss legível.
+   * @param {number} seconds
+   * @returns {string}
+   */
+  function formatTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) return "00:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
 
   /**
@@ -366,10 +733,7 @@ const App = (() => {
       elements.detailInfoCoordsStatus.className = `info-value ${isVerified ? "status-val-verified" : "status-val-pending"}`;
     }
 
-    // 3. Carregar dinamicamente o vídeo processado do cruzamento selecionado (Etapa 2A)
-    loadIntersectionVideo(item.output_video);
-
-    // 4. Alternar exibição das views
+    // 3. Alternar exibição das views
     currentView = "detail";
     if (elements.mapView) {
       elements.mapView.hidden = true;
@@ -378,6 +742,9 @@ const App = (() => {
       elements.detailView.hidden = false;
     }
 
+    // 4. Carregar dinamicamente o vídeo processado do cruzamento selecionado com isolamento estrito
+    loadIntersectionVideo(item.output_video, item.id);
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -385,10 +752,21 @@ const App = (() => {
    * Retorna à visualização de mapa (Map View).
    */
   function showMapView() {
-    // Pausar reprodução do vídeo ao sair da tela individual
-    if (elements.videoPlayer) {
-      elements.videoPlayer.pause();
+    // 1. Invalidar qualquer carregamento em andamento
+    videoLoadToken++;
+    activeIntersectionId = null;
+
+    // 2. Cancelar qualquer timer de preparação ativo
+    if (prepTimeout) {
+      clearTimeout(prepTimeout);
+      prepTimeout = null;
     }
+
+    // 3. Reset forte do player de vídeo (descarta buffer, frames e metadados)
+    resetVideoElement();
+
+    // 4. Reset completo dos controles e overlays da análise
+    resetAnalysisExecutionState();
 
     currentView = "map";
     if (elements.detailView) {
@@ -409,19 +787,52 @@ const App = (() => {
   /**
    * Define o estado visual do player e atualiza as mensagens informativas.
    * @param {"loading"|"ready"|"unavailable"|"error"} state
+   * @param {number} [token] Token de carregamento para validação de concorrência
    */
-  function setVideoState(state) {
+  function setVideoState(state, token) {
     if (!elements.videoPlayer || !elements.videoOverlay) return;
 
+    // Se um token for fornecido e for diferente do ativo, ignora o evento atrasado
+    if (token !== undefined && token !== videoLoadToken) {
+      return;
+    }
+
     if (state === "ready") {
-      elements.videoPlayer.hidden = false;
+      // Estado READY: PRÉ-EXECUÇÃO.
+      // O vídeo NÃO deve ser exibido, NÃO deve iniciar e os controles NÃO devem aparecer.
+      if (prepTimeout) {
+        clearTimeout(prepTimeout);
+        prepTimeout = null;
+      }
+      isAnalysisActive = false;
+
+      // O elemento <video> permanece pausado e estritamente oculto
+      elements.videoPlayer.pause();
+      elements.videoPlayer.hidden = true;
+      elements.videoPlayer.style.display = "none";
+
+      // Oculta placeholder neutro
       elements.videoOverlay.hidden = true;
+
+      // Mostra a tela de ANÁLISE PRONTA com especificações e botão INICIAR ANÁLISE
+      if (elements.analysisReadyOverlay) elements.analysisReadyOverlay.hidden = false;
+
+      // Controles, cabeçalho e demais overlays permanecem ocultos
+      if (elements.analysisExecHeader) elements.analysisExecHeader.hidden = true;
+      if (elements.analysisPrepOverlay) elements.analysisPrepOverlay.hidden = true;
+      if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = true;
+      if (elements.videoControls) elements.videoControls.hidden = true;
+
       if (elements.detailAnalysisStatus) {
-        elements.detailAnalysisStatus.textContent = "Vídeo processado disponível.";
+        elements.detailAnalysisStatus.textContent = "Análise veicular pronta para execução demonstrativa.";
       }
     } else if (state === "loading") {
+      resetAnalysisExecutionState();
+
       elements.videoPlayer.hidden = true;
+      elements.videoPlayer.style.display = "none";
       elements.videoOverlay.hidden = false;
+
       if (elements.videoPlaceholderTitle) {
         elements.videoPlaceholderTitle.textContent = "CARREGANDO VÍDEO";
       }
@@ -432,8 +843,12 @@ const App = (() => {
         elements.detailAnalysisStatus.textContent = "Carregando vídeo processado...";
       }
     } else if (state === "error") {
+      resetAnalysisExecutionState();
+
       elements.videoPlayer.hidden = true;
+      elements.videoPlayer.style.display = "none";
       elements.videoOverlay.hidden = false;
+
       if (elements.videoPlaceholderTitle) {
         elements.videoPlaceholderTitle.textContent = "FALHA NA REPRODUÇÃO";
       }
@@ -445,8 +860,12 @@ const App = (() => {
       }
     } else {
       // "unavailable"
+      resetAnalysisExecutionState();
+
       elements.videoPlayer.hidden = true;
+      elements.videoPlayer.style.display = "none";
       elements.videoOverlay.hidden = false;
+
       if (elements.videoPlaceholderTitle) {
         elements.videoPlaceholderTitle.textContent = "VÍDEO NÃO DISPONÍVEL";
       }
@@ -460,40 +879,61 @@ const App = (() => {
   }
 
   /**
-   * Configura e carrega o vídeo processado do cruzamento ativo.
-   * @param {string} videoPath Caminho do vídeo output
+   * Configura e carrega o vídeo processado com isolamento absoluto por cruzamento.
+   * @param {string|null} videoPath Caminho do vídeo output
+   * @param {string} [intersectionId] ID do cruzamento ativo
    */
-  async function loadIntersectionVideo(videoPath) {
+  async function loadIntersectionVideo(videoPath, intersectionId) {
     if (!elements.videoPlayer) return;
 
-    // 1. Interromper vídeo anterior, limpar source e zerar posição
-    elements.videoPlayer.pause();
-    elements.videoPlayer.removeAttribute("src");
-    elements.videoPlayer.currentTime = 0;
+    // 1. Gera um novo token para invalidar qualquer evento ou fetch anterior
+    const myToken = ++videoLoadToken;
+    activeIntersectionId = intersectionId || selectedId;
 
+    // 2. Cancela qualquer timer de preparação ativo
+    if (prepTimeout) {
+      clearTimeout(prepTimeout);
+      prepTimeout = null;
+    }
+
+    // 3. Reset forte do elemento <video> (descarta buffer, frame residual, metadados)
+    resetVideoElement();
+
+    // 4. Reset completo da UI para estado neutro LOADING
+    resetAnalysisExecutionState();
+
+    // 5. Se o cruzamento não possui arquivo configurado no JSON
     if (!videoPath) {
-      setVideoState("unavailable");
+      setVideoState("unavailable", myToken);
       return;
     }
 
-    // 2. Definir estado inicial de carregamento
-    setVideoState("loading");
+    // 6. Entra imediatamente em LOADING neutro antes de qualquer verificação
+    setVideoState("loading", myToken);
 
-    // 3. Teste rápido de existência do recurso antes de atribuir ao player
+    // 7. Teste de existência física do recurso via fetch HEAD
     try {
       const response = await fetch(videoPath, { method: "HEAD" });
-      if (!response.ok) {
-        // Arquivo não existe no servidor (ex: 404)
-        setVideoState("unavailable");
+
+      // Se o usuário trocou de ponto durante o fetch, aborta!
+      if (myToken !== videoLoadToken || selectedId !== activeIntersectionId) {
         return;
       }
 
-      // 4. Arquivo existente no servidor: atribui ao player e aciona load()
+      if (!response.ok) {
+        // Arquivo não existe no servidor (ex: 404) -> UNAVAILABLE
+        setVideoState("unavailable", myToken);
+        return;
+      }
+
+      // 8. Arquivo existe no servidor: atribui ao player e aciona load()
       elements.videoPlayer.src = videoPath;
       elements.videoPlayer.load();
     } catch (e) {
-      // Falha de rede ou indisponibilidade
-      setVideoState("unavailable");
+      if (myToken !== videoLoadToken || selectedId !== activeIntersectionId) {
+        return;
+      }
+      setVideoState("unavailable", myToken);
     }
   }
 

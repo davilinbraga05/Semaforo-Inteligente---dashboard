@@ -70,6 +70,11 @@
   padding: 0;
 }
 
+/* Garantia global de ocultação estrita de elementos com atributo hidden */
+[hidden] {
+  display: none !important;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
@@ -830,9 +835,89 @@ body {
   align-items: start;
 }
 
-.detail-video-column {
+/* ==========================================================================
+   Interface de Execução da Análise Veicular (Etapa 2A.1)
+   ========================================================================== */
+
+/* Cabeçalho Técnico da Área de Análise */
+.analysis-exec-header {
+  background-color: #1E2226;
+  border: 1px solid var(--border-medium);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.analysis-exec-header[hidden] {
+  display: none !important;
+}
+
+.exec-header-left {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.exec-main-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.exec-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #F4F5F6;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.exec-pipeline-specs {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: #9BA3AA;
+}
+
+.exec-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.exec-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background-color: #121417;
+  border: 1px solid #383F46;
+  color: #DDE2E6;
+}
+
+.exec-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #38A169;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.exec-status-badge.paused .exec-status-dot {
+  background-color: var(--status-pending);
+}
+
+.exec-status-badge.ended .exec-status-dot {
+  background-color: #7AB1D8;
 }
 
 /* Container de Vídeo 16:9 Padronizado (Obrigatoriamente 16/9 e 100% de largura) */
@@ -850,7 +935,12 @@ body {
   position: relative;
 }
 
-/* Elemento de Vídeo HTML5 (Player Genérico Único — Etapa 2A) */
+/* Quando o cabeçalho técnico está ativo acima do container */
+.analysis-exec-header:not([hidden]) + .video-container {
+  border-radius: 0;
+}
+
+/* Elemento de Vídeo HTML5 (Player Genérico Único — Etapa 2A / 2A.1) */
 .video-container video,
 .video-player-element {
   width: 100%;
@@ -860,10 +950,257 @@ body {
   display: block;
 }
 
-.video-player-element[hidden] {
+#intersection-video-player[hidden],
+.video-container video[hidden],
+.video-player-element[hidden],
+video[hidden] {
   display: none !important;
 }
 
+/* Overlays Genéricos na Área do Vídeo */
+.video-overlay-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(18, 20, 23, 0.96);
+  padding: 24px;
+  text-align: center;
+}
+
+.video-overlay-panel[hidden] {
+  display: none !important;
+}
+
+/* Overlay 1: Tela de Análise Pronta */
+.ready-panel-content {
+  max-width: 580px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ready-badge-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.ready-status-tag {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background-color: rgba(47, 125, 74, 0.2);
+  border: 1px solid var(--status-verified);
+  color: #48BB78;
+}
+
+.ready-type-tag {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background-color: rgba(47, 111, 159, 0.2);
+  border: 1px solid var(--accent-blue);
+  color: #7AB1D8;
+}
+
+.ready-panel-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #F4F5F6;
+  line-height: 1.3;
+}
+
+.ready-panel-subtitle {
+  font-size: 0.78rem;
+  color: #A0AAB2;
+  max-width: 440px;
+  line-height: 1.4;
+}
+
+/* Painel de Especificações do Pipeline Desenvolvido */
+.pipeline-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 4px 0 6px;
+}
+
+.pipeline-spec-card {
+  background-color: #1A1E22;
+  border: 1px solid #2B3137;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spec-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #76818B;
+  font-weight: 600;
+}
+
+.spec-value {
+  font-size: 0.88rem;
+  color: #E6EAED;
+  font-weight: 600;
+}
+
+.spec-sub {
+  font-size: 0.7rem;
+  color: #8C96A0;
+  margin-top: 1px;
+}
+
+.ready-action-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-start-analysis {
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 10px 24px;
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.btn-start-analysis:hover {
+  background-color: #24587E;
+}
+
+.btn-start-analysis:focus-visible {
+  outline: 2px solid #5EA2D6;
+  outline-offset: 2px;
+}
+
+.ready-footnote {
+  font-size: 0.72rem;
+  color: #76818B;
+}
+
+/* Overlay 2: Transição de Preparação Curta */
+.prep-panel {
+  z-index: 25;
+}
+
+.prep-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: prepSpin 0.9s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes prepSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.prep-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #F4F5F6;
+}
+
+.prep-desc {
+  font-size: 0.8rem;
+  color: #A0AAB2;
+  margin-top: 4px;
+}
+
+/* Overlay 3: Análise Concluída */
+.ended-panel {
+  z-index: 20;
+}
+
+.ended-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(47, 125, 74, 0.4);
+  background-color: rgba(47, 125, 74, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.ended-icon-check {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  border: solid #38A169;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
+
+.ended-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #F4F5F6;
+}
+
+.ended-desc {
+  font-size: 0.8rem;
+  color: #A0AAB2;
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+.btn-restart-analysis {
+  background-color: #2B3035;
+  color: #F4F5F6;
+  border: 1px solid #41474D;
+  border-radius: var(--radius-sm);
+  padding: 8px 18px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-restart-analysis:hover {
+  background-color: #383F46;
+}
+
+.btn-restart-analysis:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* Overlay 4: Estados do Vídeo (Placeholder Tradicional) */
 .video-placeholder {
   display: flex;
   flex-direction: column;
@@ -911,6 +1248,144 @@ body {
   font-size: 0.78rem;
   color: #A0AAB2;
   margin-top: 4px;
+}
+
+/* Barra de Controles Customizados Técnicos */
+.video-controls-bar {
+  background-color: #1A1D20;
+  border: 1px solid var(--border-medium);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.video-controls-bar[hidden] {
+  display: none !important;
+}
+
+.controls-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn {
+  background-color: #2B3035;
+  border: 1px solid #41474D;
+  border-radius: var(--radius-sm);
+  color: #E6EAED;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.control-btn:hover {
+  background-color: #383F46;
+  border-color: #555D65;
+}
+
+.control-btn:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
+.controls-middle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.video-seek-range {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #2F353C;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.video-seek-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--accent-blue);
+  border: 2px solid #FFFFFF;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.video-seek-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--accent-blue);
+  border: 2px solid #FFFFFF;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-timer {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: #CBD5E1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.control-btn-icon {
+  background-color: transparent;
+  border: 1px solid #41474D;
+  border-radius: var(--radius-sm);
+  color: #CBD5E1;
+  font-size: 0.85rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.control-btn-icon:hover {
+  background-color: #2B3035;
+  color: #FFFFFF;
+}
+
+.control-btn-icon:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
+.fullscreen-icon {
+  line-height: 1;
+}
+
+/* Nota de Transparência da Análise */
+.analysis-transparency-note {
+  margin-top: 8px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  text-align: left;
+  line-height: 1.4;
 }
 
 /* Coluna Lateral da Detail View */
@@ -1057,4 +1532,20 @@ body {
   .detail-intersection-title {
     font-size: 1.1rem;
   }
+
+  .pipeline-spec-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-exec-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .video-controls-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
+

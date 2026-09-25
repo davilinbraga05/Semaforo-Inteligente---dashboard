@@ -110,15 +110,93 @@
 
       <!-- Grade Principal da Tela Individual: Área de Vídeo (Esquerda) e Informações (Direita) -->
       <div class="detail-grid">
-        <!-- Coluna Esquerda: Área de Vídeo 16:9 Padronizada -->
+        <!-- Coluna Esquerda: Área de Execução da Análise Veicular (Etapa 2A.1) -->
         <div class="detail-video-column">
+          <!-- Cabeçalho Técnico da Área de Análise -->
+          <div id="analysis-execution-header" class="analysis-exec-header" hidden>
+            <div class="exec-header-left">
+              <div class="exec-main-title-row">
+                <span class="exec-title">ANÁLISE VEICULAR</span>
+                <span class="exec-pipeline-specs">YOLO26s &middot; ByteTrack &middot; 4 classes &middot; Contagem por linha</span>
+              </div>
+            </div>
+            <div class="exec-header-right">
+              <span id="analysis-status-badge" class="exec-status-badge">
+                <span class="exec-status-dot" aria-hidden="true"></span>
+                <span id="analysis-status-text">EXECUÇÃO DEMONSTRATIVA</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Container de Vídeo 16:9 Padronizado -->
           <div class="video-container" id="video-display-area">
-            <!-- Player HTML5 Genérico Único (Etapa 2A) -->
-            <video id="intersection-video-player" class="video-player-element" controls preload="metadata" playsinline hidden>
+            <!-- Player HTML5 Único (Etapa 2A / 2A.1) -->
+            <video id="intersection-video-player" class="video-player-element" preload="metadata" playsinline hidden>
               Seu navegador não suporta a reprodução deste vídeo processado.
             </video>
 
-            <!-- Overlay / Placeholder de Estados do Vídeo -->
+            <!-- Overlay 1: Análise Pronta (Apresentação Técnica do Pipeline Desenvolvido) -->
+            <div id="analysis-ready-overlay" class="video-overlay-panel ready-panel" hidden>
+              <div class="ready-panel-content">
+                <div class="ready-badge-row">
+                  <span class="ready-status-tag">SISTEMA PRONTO</span>
+                  <span class="ready-type-tag">ANÁLISE VEICULAR</span>
+                </div>
+                <h3 class="ready-panel-title">Visualização da Análise Processada</h3>
+                <p class="ready-panel-subtitle">Pipeline de visão computacional aplicado ao fluxo deste cruzamento</p>
+
+                <!-- Quadro de Especificações do Pipeline do Projeto -->
+                <div class="pipeline-spec-grid">
+                  <div class="pipeline-spec-card">
+                    <span class="spec-label">Detector</span>
+                    <strong class="spec-value">YOLO26s</strong>
+                  </div>
+                  <div class="pipeline-spec-card">
+                    <span class="spec-label">Rastreamento</span>
+                    <strong class="spec-value">ByteTrack</strong>
+                  </div>
+                  <div class="pipeline-spec-card">
+                    <span class="spec-label">Classes Monitoradas</span>
+                    <strong class="spec-value">4 classes</strong>
+                    <span class="spec-sub">Carro &middot; Moto &middot; Ônibus &middot; Caminhão</span>
+                  </div>
+                  <div class="pipeline-spec-card">
+                    <span class="spec-label">Contagem</span>
+                    <strong class="spec-value">Linhas virtuais</strong>
+                    <span class="spec-sub">Sensores direcionais</span>
+                  </div>
+                </div>
+
+                <!-- Botão Principal de Início -->
+                <div class="ready-action-wrapper">
+                  <button type="button" id="btn-start-analysis" class="btn-start-analysis" aria-label="Iniciar execução demonstrativa da análise">
+                    INICIAR ANÁLISE
+                  </button>
+                  <span class="ready-footnote">Execução demonstrativa de análise previamente processada</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Overlay 2: Preparação Curta (700-1500ms) -->
+            <div id="analysis-prep-overlay" class="video-overlay-panel prep-panel" hidden>
+              <div class="prep-spinner" aria-hidden="true"></div>
+              <h4 id="prep-overlay-title" class="prep-title">Preparando visualização...</h4>
+              <p id="prep-overlay-desc" class="prep-desc">Carregando análise processada do cruzamento</p>
+            </div>
+
+            <!-- Overlay 3: Análise Concluída -->
+            <div id="analysis-ended-overlay" class="video-overlay-panel ended-panel" hidden>
+              <div class="ended-icon-circle" aria-hidden="true">
+                <span class="ended-icon-check"></span>
+              </div>
+              <h4 class="ended-title">ANÁLISE CONCLUÍDA</h4>
+              <p class="ended-desc">Visualização da gravação processada finalizada</p>
+              <button type="button" id="btn-restart-analysis-overlay" class="btn-restart-analysis" aria-label="Reiniciar execução da análise">
+                REINICIAR ANÁLISE
+              </button>
+            </div>
+
+            <!-- Overlay 4: Estados do Vídeo (Loading / Unavailable / Error) -->
             <div id="video-state-overlay" class="video-placeholder">
               <div class="placeholder-icon-circle" aria-hidden="true">
                 <span class="placeholder-icon-target"></span>
@@ -126,6 +204,34 @@
               <h4 id="video-placeholder-title" class="placeholder-title">VISUALIZAÇÃO DO CRUZAMENTO</h4>
               <p id="video-placeholder-desc" class="placeholder-desc">Área preparada para análise de vídeo</p>
             </div>
+          </div>
+
+          <!-- Barra de Controles Customizados Técnicos -->
+          <div id="video-custom-controls" class="video-controls-bar" hidden>
+            <div class="controls-left">
+              <button type="button" id="btn-control-playpause" class="control-btn" aria-label="Pausar ou continuar reprodução">
+                <span id="control-playpause-text">Pausar</span>
+              </button>
+              <button type="button" id="btn-control-restart" class="control-btn" aria-label="Reiniciar reprodução desde o início">
+                <span>Reiniciar</span>
+              </button>
+            </div>
+
+            <div class="controls-middle">
+              <input type="range" id="video-seek-slider" class="video-seek-range" min="0" max="100" value="0" step="0.1" aria-label="Posição da reprodução">
+            </div>
+
+            <div class="controls-right">
+              <span id="video-timer-display" class="video-timer">00:00 / 00:00</span>
+              <button type="button" id="btn-control-fullscreen" class="control-btn-icon" aria-label="Visualizar em tela cheia" title="Tela Cheia">
+                <span class="fullscreen-icon" aria-hidden="true">&#x26F6;</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Rodapé de Transparência da Análise -->
+          <div class="analysis-transparency-note">
+            <span>Visualização de análise veicular previamente processada pelo pipeline computacional do projeto.</span>
           </div>
         </div>
 

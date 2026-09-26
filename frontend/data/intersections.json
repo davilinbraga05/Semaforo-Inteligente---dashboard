@@ -14,8 +14,20 @@
     "counts": null,
     "simulation": null,
     "processing": {
-      "scope": "partial",
-      "counts": null
+      "scope": "complete",
+      "counts": {
+        "car": 77,
+        "motorcycle": 0,
+        "bus": 0,
+        "truck": 6,
+        "total_traversals": 83
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 83
+        }
+      ]
     }
   },
   {
@@ -33,8 +45,24 @@
     "counts": null,
     "simulation": null,
     "processing": {
-      "scope": "partial",
-      "counts": null
+      "scope": "complete",
+      "counts": {
+        "car": 60,
+        "motorcycle": 0,
+        "bus": 0,
+        "truck": 2,
+        "total_traversals": 62
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 33
+        },
+        {
+          "id": "L2",
+          "total": 29
+        }
+      ]
     }
   },
   {
@@ -52,8 +80,28 @@
     "counts": null,
     "simulation": null,
     "processing": {
-      "scope": "partial",
-      "counts": null
+      "scope": "complete",
+      "counts": {
+        "car": 48,
+        "motorcycle": 0,
+        "bus": 2,
+        "truck": 7,
+        "total_traversals": 57
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 17
+        },
+        {
+          "id": "L2",
+          "total": 28
+        },
+        {
+          "id": "L3",
+          "total": 12
+        }
+      ]
     }
   },
   {
@@ -71,8 +119,20 @@
     "counts": null,
     "simulation": null,
     "processing": {
-      "scope": "partial",
-      "counts": null
+      "scope": "complete",
+      "counts": {
+        "car": 54,
+        "motorcycle": 0,
+        "bus": 1,
+        "truck": 1,
+        "total_traversals": 56
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 56
+        }
+      ]
     }
   },
   {

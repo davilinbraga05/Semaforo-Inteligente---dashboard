@@ -27,6 +27,7 @@ const App = (() => {
   let isSeeking = false;
   let videoLoadToken = 0;
   let activeIntersectionId = null;
+  let currentPlaybackRate = 1;
 
   // Elementos do DOM
   const elements = {};
@@ -104,6 +105,12 @@ const App = (() => {
     elements.seekSlider = document.getElementById("video-seek-slider");
     elements.timerDisplay = document.getElementById("video-timer-display");
     elements.btnFullscreen = document.getElementById("btn-control-fullscreen");
+    elements.controlsLeftGroup = document.getElementById("controls-left-group");
+    elements.btnSpeed1x = document.getElementById("btn-speed-1x");
+    elements.btnSpeed2x = document.getElementById("btn-speed-2x");
+    elements.btnSpeed3x = document.getElementById("btn-speed-3x");
+    elements.detailResultsContent = document.getElementById("detail-results-content");
+    elements.detailResultsStatus = document.getElementById("detail-results-status");
   }
 
   /**
@@ -164,8 +171,14 @@ const App = (() => {
     elements.videoPlayer.addEventListener("loadedmetadata", () => {
       if (selectedId !== activeIntersectionId) return;
 
+      if (elements.videoPlayer) {
+        elements.videoPlayer.playbackRate = currentPlaybackRate;
+      }
+
       if (elements.timerDisplay && elements.videoPlayer) {
-        elements.timerDisplay.textContent = `00:00 / ${formatTime(elements.videoPlayer.duration || 0)}`;
+        const dur = elements.videoPlayer.duration;
+        const formattedDur = (!isNaN(dur) && isFinite(dur)) ? formatTime(dur) : "00:00";
+        elements.timerDisplay.textContent = `00:00 / ${formattedDur}`;
       }
 
       // Se ainda não iniciou, loadedmetadata também assegura READY
@@ -179,17 +192,21 @@ const App = (() => {
       const current = elements.videoPlayer.currentTime || 0;
       const duration = elements.videoPlayer.duration || 0;
 
-      if (!isSeeking && duration > 0 && elements.seekSlider) {
+      // Não sobrescrever a posição do slider durante interação ou busca ativa do decoder
+      if (!isSeeking && !elements.videoPlayer.seeking && duration > 0 && elements.seekSlider) {
         elements.seekSlider.value = ((current / duration) * 100).toFixed(1);
       }
 
-      if (elements.timerDisplay) {
+      if (!isSeeking && elements.timerDisplay) {
         elements.timerDisplay.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
       }
     });
 
     elements.videoPlayer.addEventListener("play", () => {
       if (isAnalysisActive) {
+        if (elements.btnPlayPause) elements.btnPlayPause.hidden = false;
+        if (elements.btnRestart) elements.btnRestart.hidden = false;
+        if (elements.controlsLeftGroup) elements.controlsLeftGroup.style.display = "";
         if (elements.playPauseText) elements.playPauseText.textContent = "Pausar";
         updateExecutionBadge("playing");
         if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = true;
@@ -198,6 +215,9 @@ const App = (() => {
 
     elements.videoPlayer.addEventListener("pause", () => {
       if (isAnalysisActive && !elements.videoPlayer.ended) {
+        if (elements.btnPlayPause) elements.btnPlayPause.hidden = false;
+        if (elements.btnRestart) elements.btnRestart.hidden = false;
+        if (elements.controlsLeftGroup) elements.controlsLeftGroup.style.display = "";
         if (elements.playPauseText) elements.playPauseText.textContent = "Continuar";
         updateExecutionBadge("paused");
       }
@@ -205,12 +225,19 @@ const App = (() => {
 
     elements.videoPlayer.addEventListener("ended", () => {
       if (isAnalysisActive) {
-        if (elements.playPauseText) elements.playPauseText.textContent = "Reiniciar";
+        // Oculta botões de ação na barra inferior para evitar duplicidade de Reiniciar
+        if (elements.btnPlayPause) elements.btnPlayPause.hidden = true;
+        if (elements.btnRestart) elements.btnRestart.hidden = true;
+        if (elements.controlsLeftGroup) elements.controlsLeftGroup.style.display = "none";
+
         updateExecutionBadge("ended");
         if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = false;
         if (elements.detailAnalysisStatus) {
           elements.detailAnalysisStatus.textContent = "Execução demonstrativa concluída.";
         }
+
+        // Revela os resultados reais consolidados ou aviso institucional
+        renderResultsSection("completed");
       }
     });
 
@@ -273,20 +300,69 @@ const App = (() => {
       });
     }
 
-    // Slider de Seek (Progresso da Análise)
+    // Slider de Seek (Progresso da Análise com Navegação Livre e Robusta)
     if (elements.seekSlider) {
-      elements.seekSlider.addEventListener("input", () => {
-        if (!elements.videoPlayer || !elements.videoPlayer.duration) return;
-        isSeeking = true;
-        const targetTime = (parseFloat(elements.seekSlider.value) / 100) * elements.videoPlayer.duration;
+      const applySeekFromSlider = () => {
+        if (!elements.videoPlayer) return;
+        const duration = elements.videoPlayer.duration;
+        if (!duration || isNaN(duration) || !isFinite(duration) || duration <= 0) return;
+
+        const percent = Number(elements.seekSlider.value) / 100;
+        const targetTime = percent * duration;
+
         elements.videoPlayer.currentTime = targetTime;
+
         if (elements.timerDisplay) {
-          elements.timerDisplay.textContent = `${formatTime(targetTime)} / ${formatTime(elements.videoPlayer.duration)}`;
+          elements.timerDisplay.textContent = `${formatTime(targetTime)} / ${formatTime(duration)}`;
         }
+      };
+
+      // Disparado imediatamente ao clicar ou arrastar
+      elements.seekSlider.addEventListener("input", () => {
+        isSeeking = true;
+        applySeekFromSlider();
       });
 
+      // Disparado ao soltar o clique/arraste (confirmação final)
       elements.seekSlider.addEventListener("change", () => {
+        applySeekFromSlider();
         isSeeking = false;
+      });
+
+      // Garantia de liberação do estado isSeeking caso o mouse seja solto fora do slider
+      window.addEventListener("mouseup", () => {
+        if (isSeeking) {
+          isSeeking = false;
+        }
+      });
+      window.addEventListener("pointerup", () => {
+        if (isSeeking) {
+          isSeeking = false;
+        }
+      });
+      window.addEventListener("touchend", () => {
+        if (isSeeking) {
+          isSeeking = false;
+        }
+      });
+    }
+
+    // Controle de Velocidade 1x / 2x / 3x
+    if (elements.btnSpeed1x) {
+      elements.btnSpeed1x.addEventListener("click", () => {
+        setPlaybackRate(1);
+      });
+    }
+
+    if (elements.btnSpeed2x) {
+      elements.btnSpeed2x.addEventListener("click", () => {
+        setPlaybackRate(2);
+      });
+    }
+
+    if (elements.btnSpeed3x) {
+      elements.btnSpeed3x.addEventListener("click", () => {
+        setPlaybackRate(3);
       });
     }
 
@@ -326,6 +402,9 @@ const App = (() => {
       elements.detailAnalysisStatus.textContent = "Preparando visualização da análise...";
     }
 
+    // Informa que a análise está em execução
+    renderResultsSection("running");
+
     // Capturar o token e cruzamento atuais para proteger contra trocas durante a preparação
     const prepToken = videoLoadToken;
     const prepExpectedId = selectedId;
@@ -350,6 +429,7 @@ const App = (() => {
         elements.videoPlayer.hidden = false;
         elements.videoPlayer.style.display = "block";
         elements.videoPlayer.currentTime = 0;
+        elements.videoPlayer.playbackRate = currentPlaybackRate;
       }
 
       if (elements.analysisExecHeader) {
@@ -358,6 +438,12 @@ const App = (() => {
       if (elements.videoControls) {
         elements.videoControls.hidden = false;
       }
+
+      // Assegurar botões visíveis no início
+      if (elements.btnPlayPause) elements.btnPlayPause.hidden = false;
+      if (elements.btnRestart) elements.btnRestart.hidden = false;
+      if (elements.controlsLeftGroup) elements.controlsLeftGroup.style.display = "";
+      if (elements.playPauseText) elements.playPauseText.textContent = "Pausar";
 
       updateExecutionBadge("playing");
 
@@ -381,9 +467,22 @@ const App = (() => {
   function restartAnalysisExecution() {
     if (!elements.videoPlayer) return;
     elements.videoPlayer.currentTime = 0;
+    elements.videoPlayer.playbackRate = currentPlaybackRate;
     if (elements.analysisEndedOverlay) {
       elements.analysisEndedOverlay.hidden = true;
     }
+
+    // Restaura visibilidade dos botões da barra de controles
+    if (elements.btnPlayPause) elements.btnPlayPause.hidden = false;
+    if (elements.btnRestart) elements.btnRestart.hidden = false;
+    if (elements.controlsLeftGroup) elements.controlsLeftGroup.style.display = "";
+    if (elements.playPauseText) elements.playPauseText.textContent = "Pausar";
+
+    updateExecutionBadge("playing");
+
+    // Remove temporariamente os cards de resultados e volta ao estado de execução
+    renderResultsSection("running");
+
     elements.videoPlayer.play().catch(() => {});
   }
 
@@ -456,12 +555,116 @@ const App = (() => {
     if (elements.analysisEndedOverlay) elements.analysisEndedOverlay.hidden = true;
     if (elements.videoControls) elements.videoControls.hidden = true;
 
+    if (elements.btnPlayPause) elements.btnPlayPause.hidden = false;
+    if (elements.btnRestart) elements.btnRestart.hidden = false;
+    if (elements.controlsLeftGroup) elements.controlsLeftGroup.style.display = "";
     if (elements.playPauseText) elements.playPauseText.textContent = "Pausar";
+
     if (elements.seekSlider) elements.seekSlider.value = "0";
     if (elements.timerDisplay) elements.timerDisplay.textContent = "00:00 / 00:00";
     if (elements.analysisStatusBadge && elements.analysisStatusText) {
       elements.analysisStatusBadge.className = "exec-status-badge";
       elements.analysisStatusText.textContent = "EXECUÇÃO DEMONSTRATIVA";
+    }
+
+    renderResultsSection("waiting");
+  }
+
+  /**
+   * Define e aplica a taxa de velocidade de reprodução (1x, 2x ou 3x).
+   * @param {1|2|3} rate
+   */
+  function setPlaybackRate(rate) {
+    if (rate === 3) {
+      currentPlaybackRate = 3;
+    } else if (rate === 2) {
+      currentPlaybackRate = 2;
+    } else {
+      currentPlaybackRate = 1;
+    }
+
+    if (elements.videoPlayer) {
+      elements.videoPlayer.playbackRate = currentPlaybackRate;
+    }
+    if (elements.btnSpeed1x) {
+      elements.btnSpeed1x.classList.toggle("active", currentPlaybackRate === 1);
+    }
+    if (elements.btnSpeed2x) {
+      elements.btnSpeed2x.classList.toggle("active", currentPlaybackRate === 2);
+    }
+    if (elements.btnSpeed3x) {
+      elements.btnSpeed3x.classList.toggle("active", currentPlaybackRate === 3);
+    }
+  }
+
+  /**
+   * Renderiza o conteúdo da seção de Resultados do Processamento.
+   * @param {"waiting"|"running"|"completed"} state
+   */
+  function renderResultsSection(state) {
+    if (!elements.detailResultsContent) return;
+
+    if (state === "waiting") {
+      elements.detailResultsContent.innerHTML = `
+        <p id="detail-results-status" class="results-neutral-text">Aguardando conclusão da análise.</p>
+      `;
+      return;
+    }
+
+    if (state === "running") {
+      elements.detailResultsContent.innerHTML = `
+        <p id="detail-results-status" class="results-neutral-text">Análise em execução. Os resultados serão exibidos ao final.</p>
+      `;
+      return;
+    }
+
+    if (state === "completed") {
+      const item = intersections.find((i) => i.id === selectedId);
+      if (!item) return;
+
+      const processing = item.processing;
+      const isComplete = processing && processing.scope === "complete" && processing.counts;
+
+      if (isComplete) {
+        const counts = processing.counts;
+        const lines = processing.lines || [];
+        const linesText = lines.length > 0
+          ? lines.map((l) => `${escapeHtml(l.id)} ${l.total}`).join(" &middot; ")
+          : "";
+
+        elements.detailResultsContent.innerHTML = `
+          <div class="results-metrics-grid">
+            <div class="metric-card">
+              <span class="metric-card-label">Carros</span>
+              <span class="metric-card-value">${counts.car ?? 0}</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-card-label">Motocicletas</span>
+              <span class="metric-card-value">${counts.motorcycle ?? 0}</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-card-label">Ônibus</span>
+              <span class="metric-card-value">${counts.bus ?? 0}</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-card-label">Caminhões</span>
+              <span class="metric-card-value">${counts.truck ?? 0}</span>
+            </div>
+            <div class="metric-card metric-card-total">
+              <span class="metric-card-label">Travessias</span>
+              <span class="metric-card-value">${counts.total_traversals ?? 0}</span>
+            </div>
+          </div>
+          ${linesText ? `<div class="results-lines-info">Linhas de contagem: ${linesText}</div>` : ""}
+        `;
+      } else {
+        // Trecho processado / parcial (CET-01 a CET-04)
+        elements.detailResultsContent.innerHTML = `
+          <div class="results-partial-message">
+            Métricas consolidadas não disponíveis para este trecho processado.
+          </div>
+        `;
+      }
     }
   }
 
@@ -471,7 +674,7 @@ const App = (() => {
    * @returns {string}
    */
   function formatTime(seconds) {
-    if (isNaN(seconds) || seconds < 0) return "00:00";
+    if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return "00:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
@@ -742,6 +945,10 @@ const App = (() => {
       elements.detailView.hidden = false;
     }
 
+    // Reset de velocidade e resultados ao trocar de cruzamento
+    setPlaybackRate(1);
+    renderResultsSection("waiting");
+
     // 4. Carregar dinamicamente o vídeo processado do cruzamento selecionado com isolamento estrito
     loadIntersectionVideo(item.output_video, item.id);
 
@@ -767,6 +974,10 @@ const App = (() => {
 
     // 4. Reset completo dos controles e overlays da análise
     resetAnalysisExecutionState();
+
+    // 5. Reset seguro de velocidade e resultados
+    setPlaybackRate(1);
+    renderResultsSection("waiting");
 
     currentView = "map";
     if (elements.detailView) {
@@ -990,6 +1201,8 @@ const App = (() => {
     showMapView,
     loadIntersectionVideo,
     setVideoState,
+    setPlaybackRate,
+    renderResultsSection,
     getCurrentView: () => currentView,
     getSelectedId: () => selectedId,
     getVideoPlayer: () => elements.videoPlayer,

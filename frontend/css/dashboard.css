@@ -1141,6 +1141,8 @@ video[hidden] {
 /* Overlay 3: Análise Concluída */
 .ended-panel {
   z-index: 20;
+  background-color: rgba(18, 20, 23, 0.65);
+  backdrop-filter: blur(2px);
 }
 
 .ended-icon-circle {
@@ -1305,15 +1307,35 @@ video[hidden] {
 
 .video-seek-range {
   width: 100%;
-  height: 6px;
+  height: 24px;
+  background: transparent;
   -webkit-appearance: none;
   appearance: none;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+
+/* Track no Chrome / WebKit */
+.video-seek-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
   background-color: #2F353C;
   border-radius: 3px;
-  outline: none;
   cursor: pointer;
 }
 
+/* Track no Firefox */
+.video-seek-range::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  background-color: #2F353C;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* Thumb no Chrome / WebKit */
 .video-seek-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -1324,8 +1346,10 @@ video[hidden] {
   border: 2px solid #FFFFFF;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  margin-top: -4px;
 }
 
+/* Thumb no Firefox */
 .video-seek-range::-moz-range-thumb {
   width: 14px;
   height: 14px;

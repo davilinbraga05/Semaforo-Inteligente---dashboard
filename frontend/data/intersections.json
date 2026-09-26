@@ -12,7 +12,11 @@
     "output_video": "../media/outputs/output_video_teste1.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "partial",
+      "counts": null
+    }
   },
   {
     "id": "intersection_02",
@@ -27,7 +31,11 @@
     "output_video": "../media/outputs/output_video_teste2.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "partial",
+      "counts": null
+    }
   },
   {
     "id": "intersection_03",
@@ -42,7 +50,11 @@
     "output_video": "../media/outputs/output_video_teste3.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "partial",
+      "counts": null
+    }
   },
   {
     "id": "intersection_04",
@@ -57,7 +69,11 @@
     "output_video": "../media/outputs/output_video_teste4.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "partial",
+      "counts": null
+    }
   },
   {
     "id": "intersection_05",
@@ -72,7 +88,27 @@
     "output_video": "../media/outputs/output_video_teste5.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "complete",
+      "counts": {
+        "car": 255,
+        "motorcycle": 0,
+        "bus": 9,
+        "truck": 33,
+        "total_traversals": 297
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 145
+        },
+        {
+          "id": "L2",
+          "total": 152
+        }
+      ]
+    }
   },
   {
     "id": "intersection_06",
@@ -87,7 +123,27 @@
     "output_video": "../media/outputs/output_video_teste6.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "complete",
+      "counts": {
+        "car": 39,
+        "motorcycle": 0,
+        "bus": 2,
+        "truck": 7,
+        "total_traversals": 48
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 15
+        },
+        {
+          "id": "L2",
+          "total": 33
+        }
+      ]
+    }
   },
   {
     "id": "intersection_07",
@@ -102,7 +158,27 @@
     "output_video": "../media/outputs/output_video_teste7.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "complete",
+      "counts": {
+        "car": 57,
+        "motorcycle": 7,
+        "bus": 14,
+        "truck": 2,
+        "total_traversals": 80
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 10
+        },
+        {
+          "id": "L2",
+          "total": 70
+        }
+      ]
+    }
   },
   {
     "id": "intersection_08",
@@ -117,6 +193,26 @@
     "output_video": "../media/outputs/output_video_teste8.mp4",
     "status": "available",
     "counts": null,
-    "simulation": null
+    "simulation": null,
+    "processing": {
+      "scope": "complete",
+      "counts": {
+        "car": 53,
+        "motorcycle": 0,
+        "bus": 0,
+        "truck": 2,
+        "total_traversals": 55
+      },
+      "lines": [
+        {
+          "id": "L1",
+          "total": 46
+        },
+        {
+          "id": "L2",
+          "total": 9
+        }
+      ]
+    }
   }
 ]

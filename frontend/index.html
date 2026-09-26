@@ -208,7 +208,7 @@
 
           <!-- Barra de Controles Customizados Técnicos -->
           <div id="video-custom-controls" class="video-controls-bar" hidden>
-            <div class="controls-left">
+            <div class="controls-left" id="controls-left-group">
               <button type="button" id="btn-control-playpause" class="control-btn" aria-label="Pausar ou continuar reprodução">
                 <span id="control-playpause-text">Pausar</span>
               </button>
@@ -222,6 +222,11 @@
             </div>
 
             <div class="controls-right">
+              <!-- Controle de Velocidade 1x / 2x -->
+              <div class="speed-control-group" role="group" aria-label="Velocidade de reprodução">
+                <button type="button" id="btn-speed-1x" class="control-speed-btn active" aria-label="Velocidade normal 1x" title="Velocidade 1x">1x</button>
+                <button type="button" id="btn-speed-2x" class="control-speed-btn" aria-label="Velocidade rápida 2x" title="Velocidade 2x">2x</button>
+              </div>
               <span id="video-timer-display" class="video-timer">00:00 / 00:00</span>
               <button type="button" id="btn-control-fullscreen" class="control-btn-icon" aria-label="Visualizar em tela cheia" title="Tela Cheia">
                 <span class="fullscreen-icon" aria-hidden="true">&#x26F6;</span>
@@ -279,15 +284,15 @@
         </div>
       </div>
 
-      <!-- Seção Preparada para Resultados Futuros -->
+      <!-- Seção de Resultados do Processamento -->
       <section class="detail-results-section" aria-label="Resultados do Processamento">
         <div class="sidebar-block results-placeholder-block">
           <div class="sidebar-block-header">
             <h3 class="block-title">Resultados do Processamento</h3>
             <span class="block-subtitle">Métricas veiculares</span>
           </div>
-          <div class="results-placeholder-content">
-            <p class="results-neutral-text">Aguardando dados de contagem.</p>
+          <div id="detail-results-content" class="results-placeholder-content" aria-live="polite">
+            <p id="detail-results-status" class="results-neutral-text">Aguardando conclusão da análise.</p>
           </div>
         </div>
       </section>

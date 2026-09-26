@@ -1432,7 +1432,7 @@ video[hidden] {
   line-height: 1.45;
 }
 
-/* Área Preparada para Resultados Futuros */
+/* Área de Resultados do Processamento */
 .detail-results-section {
   margin-top: 4px;
 }
@@ -1444,6 +1444,117 @@ video[hidden] {
 .results-neutral-text {
   font-size: 0.82rem;
   color: var(--text-muted);
+}
+
+/* Controle de Velocidade 1x / 2x */
+.speed-control-group {
+  display: inline-flex;
+  align-items: center;
+  background-color: #24282D;
+  border: 1px solid #41474D;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  height: 28px;
+}
+
+.control-speed-btn {
+  background-color: transparent;
+  border: none;
+  color: #A0AAB2;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0 9px;
+  height: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.control-speed-btn:hover {
+  background-color: #383F46;
+  color: #FFFFFF;
+}
+
+.control-speed-btn.active {
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+}
+
+.control-speed-btn:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -1px;
+}
+
+/* Grid de Métricas Consolidadas */
+.results-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.metric-card {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color var(--transition-fast);
+}
+
+.metric-card-total {
+  background-color: #E6EFF6;
+  border-color: var(--accent-blue-border);
+  border-left: 3px solid var(--accent-blue);
+}
+
+.metric-card-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.metric-card-value {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.metric-card-total .metric-card-value {
+  color: var(--accent-blue);
+}
+
+.results-lines-info {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.results-partial-message {
+  margin-top: 8px;
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
 }
 
 /* ==========================================================================
@@ -1482,6 +1593,10 @@ video[hidden] {
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .results-metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -1546,6 +1661,14 @@ video[hidden] {
   .video-controls-bar {
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .results-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .metric-card-total {
+    grid-column: span 2;
   }
 }
 

@@ -28,6 +28,7 @@ const App = (() => {
   let videoLoadToken = 0;
   let activeIntersectionId = null;
   let currentPlaybackRate = 1;
+  let isRecalculating = false;
 
   // Elementos do DOM
   const elements = {};
@@ -111,6 +112,9 @@ const App = (() => {
     elements.btnSpeed3x = document.getElementById("btn-speed-3x");
     elements.detailResultsContent = document.getElementById("detail-results-content");
     elements.detailResultsStatus = document.getElementById("detail-results-status");
+    elements.simulationSection = document.getElementById("detail-simulation-section");
+    elements.simulationContent = document.getElementById("detail-simulation-content");
+    elements.simulationStatusBadge = document.getElementById("simulation-status-badge");
   }
 
   /**
@@ -238,6 +242,9 @@ const App = (() => {
 
         // Revela os resultados reais consolidados ou aviso institucional
         renderResultsSection("completed");
+
+        // Habilita a simulação de controle semafórico adaptativo (Etapa Final)
+        renderSimulationSection("ready");
       }
     });
 
@@ -372,6 +379,19 @@ const App = (() => {
         toggleFullscreen();
       });
     }
+
+    // Eventos da Simulação de Controle Semafórico Adaptativo (Etapa Final)
+    if (elements.simulationContent) {
+      elements.simulationContent.addEventListener("click", (e) => {
+        const btnRun = e.target.closest("#btn-run-simulation");
+        const btnRecalc = e.target.closest("#btn-recalculate-simulation");
+        if (btnRun && !btnRun.disabled && !btnRun.classList.contains("disabled")) {
+          runAdaptiveSimulation(false);
+        } else if (btnRecalc && !isRecalculating && !btnRecalc.disabled) {
+          triggerRecalculateSimulation(btnRecalc);
+        }
+      });
+    }
   }
 
   /**
@@ -404,6 +424,7 @@ const App = (() => {
 
     // Informa que a análise está em execução
     renderResultsSection("running");
+    renderSimulationSection("waiting");
 
     // Capturar o token e cruzamento atuais para proteger contra trocas durante a preparação
     const prepToken = videoLoadToken;
@@ -482,6 +503,7 @@ const App = (() => {
 
     // Remove temporariamente os cards de resultados e volta ao estado de execução
     renderResultsSection("running");
+    renderSimulationSection("waiting");
 
     elements.videoPlayer.play().catch(() => {});
   }
@@ -548,6 +570,7 @@ const App = (() => {
     }
     isAnalysisActive = false;
     isSeeking = false;
+    isRecalculating = false;
 
     if (elements.analysisExecHeader) elements.analysisExecHeader.hidden = true;
     if (elements.analysisReadyOverlay) elements.analysisReadyOverlay.hidden = true;
@@ -568,6 +591,7 @@ const App = (() => {
     }
 
     renderResultsSection("waiting");
+    renderSimulationSection("waiting");
   }
 
   /**
@@ -666,6 +690,280 @@ const App = (() => {
         `;
       }
     }
+  }
+
+  /**
+   * Renderiza a seção de Simulação do Controle Semafórico Adaptativo.
+   * @param {"waiting"|"ready"|"simulated"} state
+   * @param {Object} [data] Dados calculados da simulação
+   */
+  function renderSimulationSection(state, data) {
+    if (!elements.simulationContent) return;
+
+    if (state === "waiting") {
+      if (elements.simulationStatusBadge) {
+        elements.simulationStatusBadge.textContent = "Aguardando simulação";
+      }
+      elements.simulationContent.innerHTML = `
+        <div class="simulation-waiting-state">
+          <p id="detail-simulation-status" class="simulation-neutral-text">
+            Aguardando conclusão da análise veicular para habilitar a simulação adaptativa.
+          </p>
+          <button type="button" id="btn-run-simulation" class="btn-simulate-action disabled" disabled aria-disabled="true">
+            SIMULAR CONTROLE ADAPTATIVO
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    if (state === "ready") {
+      if (elements.simulationStatusBadge) {
+        elements.simulationStatusBadge.textContent = "Disponível";
+      }
+      elements.simulationContent.innerHTML = `
+        <div class="simulation-ready-state">
+          <p class="simulation-desc-text">
+            Utilize os dados processados para gerar uma recomendação demonstrativa de temporização.
+          </p>
+          <button type="button" id="btn-run-simulation" class="btn-simulate-action" aria-label="Simular controle adaptativo">
+            SIMULAR CONTROLE ADAPTATIVO
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    if (state === "simulated" && data) {
+      if (elements.simulationStatusBadge) {
+        elements.simulationStatusBadge.textContent = data.badgeText || "Simulação calculada";
+      }
+
+      const formattedDemand = data.weightedPerMinute.toFixed(1).replace(".", ",");
+      const formattedRed = data.redEstimated.toFixed(1).replace(".", ",");
+
+      elements.simulationContent.innerHTML = `
+        <div class="simulation-results-wrapper">
+          <!-- Grupo 1: Diagnóstico de Tráfego -->
+          <div class="simulation-group-header">
+            <span class="simulation-group-title">Diagnóstico do Fluxo Observado</span>
+          </div>
+          <div class="simulation-metrics-grid">
+            <div class="metric-card simulation-card-level">
+              <span class="metric-card-label">Nível de Fluxo</span>
+              <span class="metric-card-value simulation-level-badge level-${data.level.toLowerCase()}">
+                ${data.level}
+              </span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-card-label">Demanda Ponderada</span>
+              <span class="metric-card-value">
+                ${formattedDemand} <small class="metric-unit">unidades equivalentes/min</small>
+              </span>
+            </div>
+            <div class="metric-card simulation-card-line">
+              <span class="metric-card-label">Maior Fluxo Observado</span>
+              <span class="metric-card-value simulation-line-value">
+                ${data.lineText}
+              </span>
+            </div>
+          </div>
+
+          <!-- Grupo 2: Fases Semafóricas Didáticas (Ciclo de 60s) -->
+          <div class="simulation-group-header">
+            <span class="simulation-group-title">Temporização Semafórica Sugerida (Ciclo de 60 s)</span>
+          </div>
+          <div class="simulation-metrics-grid simulation-phases-main">
+            <div class="metric-card simulation-phase-card simulation-phase-green">
+              <div class="phase-header">
+                <span class="phase-indicator" aria-hidden="true"></span>
+                <span class="phase-label">Tempo de Verde</span>
+              </div>
+              <div class="phase-value-row">
+                <span class="phase-number">${data.green}</span>
+                <span class="phase-unit">s</span>
+              </div>
+            </div>
+            <div class="metric-card simulation-phase-card simulation-phase-yellow">
+              <div class="phase-header">
+                <span class="phase-indicator" aria-hidden="true"></span>
+                <span class="phase-label">Tempo de Amarelo</span>
+              </div>
+              <div class="phase-value-row">
+                <span class="phase-number">3</span>
+                <span class="phase-unit">s</span>
+              </div>
+            </div>
+            <div class="metric-card simulation-phase-card simulation-phase-red">
+              <div class="phase-header">
+                <span class="phase-indicator" aria-hidden="true"></span>
+                <span class="phase-label">Vermelho Estimado</span>
+              </div>
+              <div class="phase-value-row">
+                <span class="phase-number">${formattedRed}</span>
+                <span class="phase-unit">s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Parâmetro Técnico de Segurança: Entreverdes -->
+          <div class="simulation-intergreen-card">
+            <div class="intergreen-header">
+              <div class="intergreen-title-group">
+                <span class="intergreen-badge">SEGURANÇA</span>
+                <span class="intergreen-label">Entreverdes</span>
+              </div>
+              <div class="intergreen-value-row">
+                <span class="intergreen-number">1,5</span>
+                <span class="intergreen-unit">s</span>
+              </div>
+            </div>
+            <p class="intergreen-desc">
+              Vermelho geral de segurança entre fases. Intervalo em que todas as aproximações permanecem temporariamente no vermelho antes da liberação da próxima fase.
+            </p>
+          </div>
+
+          <!-- Linha-resumo textual do ciclo sugerido -->
+          <div class="simulation-cycle-summary">
+            <span class="summary-bullet" aria-hidden="true">&#9679;</span>
+            <span class="summary-text">
+              Ciclo demonstrativo: <strong>${data.green} s de verde</strong>, <strong>3 s de amarelo</strong>, <strong>${formattedRed} s de vermelho estimado</strong> e <strong>1,5 s de entreverdes</strong>.
+            </span>
+          </div>
+
+          <!-- Bloco de Notas Didáticas e Institucionais -->
+          <div class="simulation-notes-block">
+            <p class="simulation-note-item">
+              &bull; O vermelho apresentado é uma estimativa dentro de um ciclo demonstrativo de 60 segundos.
+            </p>
+            <p class="simulation-note-item">
+              &bull; Entreverdes: intervalo de segurança em que todas as aproximações permanecem temporariamente no vermelho antes da liberação da próxima fase.
+            </p>
+            <p class="simulation-note-item">
+              &bull; Simulação demonstrativa baseada nos dados do trecho analisado. Não representa controle semafórico em operação real.
+            </p>
+          </div>
+
+          <div class="simulation-footer-row">
+            <button type="button" id="btn-recalculate-simulation" class="btn-recalculate-action" aria-label="Recalcular simulação">
+              RECALCULAR SIMULAÇÃO
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Aciona o recálculo da simulação semafórica com transição de loading de 500ms.
+   * @param {HTMLButtonElement} btn Elemento do botão clicado
+   */
+  function triggerRecalculateSimulation(btn) {
+    if (isRecalculating) return;
+    isRecalculating = true;
+
+    // 1. Feedback visual imediato: altera texto e desabilita o botão
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("disabled", "recalculating");
+      btn.textContent = "RECALCULANDO...";
+    }
+
+    // 2. Atualiza temporariamente o status superior
+    if (elements.simulationStatusBadge) {
+      elements.simulationStatusBadge.textContent = "Recalculando...";
+    }
+
+    // 3. Efeito sutil de atualização no container da simulação
+    const resultsWrapper = elements.simulationContent
+      ? elements.simulationContent.querySelector(".simulation-results-wrapper")
+      : null;
+    if (resultsWrapper) {
+      resultsWrapper.classList.add("recalculating-pulse");
+    }
+
+    // 4. Execução determinística após 500ms (janela de 400-700ms)
+    setTimeout(() => {
+      isRecalculating = false;
+      runAdaptiveSimulation(true);
+    }, 500);
+  }
+
+  /**
+   * Executa os cálculos da Simulação do Controle Semafórico Adaptativo.
+   * @param {boolean} [isRecalculation=false] Indica se é fruto do botão Recalcular
+   */
+  function runAdaptiveSimulation(isRecalculation = false) {
+    const item = intersections.find((i) => i.id === selectedId);
+    if (!item || !item.processing || !item.processing.counts) {
+      console.warn("[App] Dados de processamento indisponíveis para simulação.");
+      return;
+    }
+
+    const counts = item.processing.counts;
+    const car = Number(counts.car) || 0;
+    const motorcycle = Number(counts.motorcycle) || 0;
+    const bus = Number(counts.bus) || 0;
+    const truck = Number(counts.truck) || 0;
+
+    // Fórmula oficial:
+    // weightedTotal = (car * 1.0) + (motorcycle * 0.5) + (bus * 2.0) + (truck * 1.5)
+    const weightedTotal = (car * 1.0) + (motorcycle * 0.5) + (bus * 2.0) + (truck * 1.5);
+
+    // Duração obtida diretamente do elemento HTML5 de vídeo (segundos convertidos para minutos)
+    let durationSec = elements.videoPlayer ? elements.videoPlayer.duration : 0;
+    if (isNaN(durationSec) || !isFinite(durationSec) || durationSec <= 0) {
+      durationSec = 60; // Fallback de proteção
+    }
+    const durationMin = durationSec / 60;
+    const weightedPerMinute = durationMin > 0 ? (weightedTotal / durationMin) : 0;
+
+    // Heurística demonstrativa de classificação:
+    // < 30 => BAIXO (Verde: 20s)
+    // >= 30 e <= 60 => MODERADO (Verde: 30s)
+    // > 60 => ALTO (Verde: 40s)
+    let level = "MODERADO";
+    let green = 30;
+    if (weightedPerMinute < 30) {
+      level = "BAIXO";
+      green = 20;
+    } else if (weightedPerMinute <= 60) {
+      level = "MODERADO";
+      green = 30;
+    } else {
+      level = "ALTO";
+      green = 40;
+    }
+
+    // Ciclo demonstrativo de 60 segundos
+    const cycleTotal = 60;
+    const yellow = 3;
+    const intergreen = 1.5;
+    const redEstimated = cycleTotal - green - yellow - intergreen;
+
+    // Identificação da linha de maior fluxo observado
+    const lines = item.processing.lines || [];
+    let lineText = "-";
+    if (lines.length === 1) {
+      lineText = `Única linha monitorada: ${escapeHtml(lines[0].id)}`;
+    } else if (lines.length > 1) {
+      const maxLine = lines.reduce((prev, curr) => (Number(curr.total) > Number(prev.total) ? curr : prev), lines[0]);
+      lineText = `${escapeHtml(maxLine.id)} — ${maxLine.total} travessias`;
+    }
+
+    const badgeText = isRecalculation ? "Simulação recalculada" : "Simulação calculada";
+
+    renderSimulationSection("simulated", {
+      weightedTotal,
+      weightedPerMinute,
+      level,
+      green,
+      yellow,
+      intergreen,
+      redEstimated,
+      lineText,
+      badgeText
+    });
   }
 
   /**
@@ -947,7 +1245,9 @@ const App = (() => {
 
     // Reset de velocidade e resultados ao trocar de cruzamento
     setPlaybackRate(1);
+    isRecalculating = false;
     renderResultsSection("waiting");
+    renderSimulationSection("waiting");
 
     // 4. Carregar dinamicamente o vídeo processado do cruzamento selecionado com isolamento estrito
     loadIntersectionVideo(item.output_video, item.id);
@@ -977,7 +1277,9 @@ const App = (() => {
 
     // 5. Reset seguro de velocidade e resultados
     setPlaybackRate(1);
+    isRecalculating = false;
     renderResultsSection("waiting");
+    renderSimulationSection("waiting");
 
     currentView = "map";
     if (elements.detailView) {
@@ -1203,9 +1505,14 @@ const App = (() => {
     setVideoState,
     setPlaybackRate,
     renderResultsSection,
+    renderSimulationSection,
+    runAdaptiveSimulation,
+    triggerRecalculateSimulation,
     getCurrentView: () => currentView,
     getSelectedId: () => selectedId,
     getVideoPlayer: () => elements.videoPlayer,
     getIntersections: () => intersections,
   };
 })();
+
+window.App = App;

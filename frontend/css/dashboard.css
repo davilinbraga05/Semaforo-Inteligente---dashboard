@@ -1582,6 +1582,401 @@ video[hidden] {
 }
 
 /* ==========================================================================
+   Simulação do Controle Semafórico Adaptativo (Etapa Final)
+   ========================================================================== */
+.detail-simulation-section {
+  margin-top: 4px;
+}
+
+.simulation-block {
+  background-color: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+  padding: 16px;
+}
+
+.simulation-content {
+  padding: 12px 0 4px;
+}
+
+.simulation-neutral-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.simulation-waiting-state,
+.simulation-ready-state {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.simulation-desc-text {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.btn-simulate-action {
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 9px 20px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.btn-simulate-action:hover:not(:disabled) {
+  background-color: #24587E;
+}
+
+.btn-simulate-action:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.btn-simulate-action:disabled,
+.btn-simulate-action.disabled {
+  background-color: #718096;
+  color: #E2E8F0;
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+}
+
+.simulation-results-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.simulation-group-header {
+  margin-bottom: -4px;
+}
+
+.simulation-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.simulation-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.simulation-level-badge {
+  display: inline-block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.simulation-level-badge.level-baixo {
+  color: #2F855A;
+}
+
+.simulation-level-badge.level-moderado {
+  color: #B7791F;
+}
+
+.simulation-level-badge.level-alto {
+  color: #C53030;
+}
+
+.simulation-line-value {
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.metric-unit {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+/* Cards das Fases Semafóricas Didáticas */
+.simulation-phase-card {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.phase-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phase-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.phase-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.phase-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.phase-number {
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.phase-unit {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Fase 1: Verde */
+.simulation-phase-green {
+  background-color: #EDF7ED;
+  border: 1px solid #C8E6C9;
+  border-left: 4px solid #2E7D32;
+}
+
+.simulation-phase-green .phase-indicator {
+  background-color: #2E7D32;
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+}
+
+.simulation-phase-green .phase-number {
+  color: #1B5E20;
+}
+
+/* Fase 2: Amarelo (Excelente contraste e legibilidade) */
+.simulation-phase-yellow {
+  background-color: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-left: 4px solid #D97706;
+}
+
+.simulation-phase-yellow .phase-indicator {
+  background-color: #D97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+}
+
+.simulation-phase-yellow .phase-number {
+  color: #92400E;
+}
+
+/* Fase 3: Vermelho de Segurança */
+.simulation-phase-red {
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-left: 4px solid #DC2626;
+}
+
+.simulation-phase-red .phase-indicator {
+  background-color: #DC2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+}
+
+.simulation-phase-red .phase-number {
+  color: #991B1B;
+}
+
+/* Linha-resumo Textual do Ciclo */
+.simulation-cycle-summary {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.simulation-cycle-summary strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.summary-bullet {
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+/* Card Técnico do Entreverdes */
+.simulation-intergreen-card {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid #64748B;
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.intergreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.intergreen-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intergreen-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 2px;
+  background-color: #E2E8F0;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
+.intergreen-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.intergreen-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.intergreen-number {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.intergreen-unit {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.intergreen-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Bloco de Notas Didáticas */
+.simulation-notes-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.simulation-note-item {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.simulation-footer-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.btn-recalculate-action {
+  background-color: var(--surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btn-recalculate-action:hover:not(:disabled) {
+  background-color: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-recalculate-action:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.btn-recalculate-action:disabled,
+.btn-recalculate-action.disabled,
+.btn-recalculate-action.recalculating {
+  background-color: #E2E8F0;
+  color: #718096;
+  border-color: #CBD5E1;
+  cursor: not-allowed;
+  opacity: 0.8;
+  box-shadow: none;
+}
+
+.simulation-results-wrapper.recalculating-pulse {
+  opacity: 0.6;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* ==========================================================================
    Rodapé Operacional
    ========================================================================== */
 .footer-bar {
@@ -1621,6 +2016,10 @@ video[hidden] {
 
   .results-metrics-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .simulation-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -1693,6 +2092,15 @@ video[hidden] {
 
   .metric-card-total {
     grid-column: span 2;
+  }
+
+  .simulation-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-footer-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
